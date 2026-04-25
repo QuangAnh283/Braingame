@@ -7,6 +7,7 @@ import org.example.quizizz.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import java.util.List;
 
 @Slf4j
 @Component
+@Profile({"dev", "test"})
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 
@@ -112,7 +114,7 @@ public class DataInitializer implements CommandLineRunner {
             userRole.setUserId(admin.getId());
             userRole.setRoleId(adminRole.getId());
             userRoleRepository.save(userRole);
-            log.info("Created admin user: admin/admin123");
+            log.info("Created dev admin user: admin");
         }
 
         // Player user
@@ -125,7 +127,7 @@ public class DataInitializer implements CommandLineRunner {
             userRole.setUserId(player.getId());
             userRole.setRoleId(playerRole.getId());
             userRoleRepository.save(userRole);
-            log.info("Created player user: player/player123");
+            log.info("Created dev player user: player");
         }
     }
 

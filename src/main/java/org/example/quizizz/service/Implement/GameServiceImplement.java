@@ -1,7 +1,9 @@
 package org.example.quizizz.service.Implement;
 
 import org.example.quizizz.common.constants.GameStatus;
+import org.example.quizizz.common.constants.MessageCode;
 import org.example.quizizz.common.constants.RoomStatus;
+import org.example.quizizz.common.exception.ApiException;
 import org.example.quizizz.controller.socketio.broadcast.GameSocketFacade;
 import org.example.quizizz.model.dto.game.*;
 import org.example.quizizz.model.dto.game.AnswerOption;
@@ -17,6 +19,7 @@ import org.example.quizizz.service.helper.GameTimerEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -129,8 +132,15 @@ public class GameServiceImplement implements IGameService {
         response.setQuestionNumber(currentIndex + 1);
         response.setTotalQuestions(totalQuestions);
 
-        // Cập nhật current index
+        long startedAt = System.currentTimeMillis();
+        long expiresAt = startedAt + room.getCountdownTime() * 1000L;
+
+        // Cập nhật current index và state câu hỏi server-authoritative.
         redisService.updateGameSession(gameId, "currentQuestionIndex", currentIndex + 1);
+        redisService.updateGameSession(gameId, "currentQuestionId", question.getId());
+        redisService.updateGameSession(gameId, "currentQuestionStartedAt", startedAt);
+        redisService.updateGameSession(gameId, "currentQuestionExpiresAt", expiresAt);
+        redisService.updateGameSession(gameId, "questionVersion", currentIndex + 1);
 
         return response;
     }
@@ -190,15 +200,51 @@ public class GameServiceImplement implements IGameService {
     @Override
     @Transactional
     public QuestionResultResponse submitAnswer(Long roomId, Long userId, AnswerSubmitRequest request) {
-        // Kiểm tra đáp án
+        if (roomId == null || userId == null || request == null || request.getQuestionId() == null || request.getAnswerId() == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Missing answer submission data");
+        }
+
+        if (!roomPlayerRepository.existsByRoomIdAndUserId(roomId, userId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN.value(), MessageCode.ROOM_PERMISSION_DENIED, "Player is not active in this room");
+        }
+
+        String gameId = "game:" + roomId;
+        Map<String, Object> sessionData = redisService.getGameSession(gameId);
+        if (sessionData == null || !GameStatus.IN_PROGRESS.name().equals(sessionData.get("status"))) {
+            throw new ApiException(HttpStatus.CONFLICT.value(), MessageCode.GAME_ALREADY_STARTED, "Game is not active");
+        }
+
+        Long currentQuestionId = asLong(sessionData.get("currentQuestionId"));
+        Long startedAt = asLong(sessionData.get("currentQuestionStartedAt"));
+        Long expiresAt = asLong(sessionData.get("currentQuestionExpiresAt"));
+        long now = System.currentTimeMillis();
+
+        if (currentQuestionId == null || startedAt == null || expiresAt == null) {
+            throw new ApiException(HttpStatus.CONFLICT.value(), MessageCode.BAD_REQUEST, "No active question is available");
+        }
+        if (!currentQuestionId.equals(request.getQuestionId())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Answer is not for the active question");
+        }
+        if (now > expiresAt) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Time is up for this question");
+        }
+        if (userAnswerRepository.existsByRoomIdAndUserIdAndQuestionId(roomId, userId, request.getQuestionId())) {
+            throw new ApiException(HttpStatus.CONFLICT.value(), MessageCode.BAD_REQUEST, "Question already answered");
+        }
+
         Answer answer = answerRepository.findById(request.getAnswerId()).orElseThrow();
+        if (!request.getQuestionId().equals(answer.getQuestionId())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Answer does not belong to the submitted question");
+        }
+
         boolean isCorrect = answer.getIsCorrect();
 
         // Lấy thông tin phòng để tính điểm
         Room room = roomRepository.findById(roomId).orElseThrow();
+        long serverTimeTaken = Math.max(0, Math.min(now - startedAt, room.getCountdownTime() * 1000L));
 
         // Tính điểm dựa trên tốc độ và độ chính xác
-        int baseScore = scoreCalculator.calculateScore(isCorrect, request.getTimeTaken(), room.getCountdownTime());
+        int baseScore = scoreCalculator.calculateScore(isCorrect, serverTimeTaken, room.getCountdownTime());
 
         int finalScore = baseScore;
         int currentStreak = 0;
@@ -229,23 +275,38 @@ public class GameServiceImplement implements IGameService {
         userAnswer.setAnswerId(request.getAnswerId());
         userAnswer.setIsCorrect(isCorrect);
         userAnswer.setScore(finalScore);
-        userAnswer.setTimeTaken(request.getTimeTaken().intValue());
+        userAnswer.setTimeTaken((int) Math.min(serverTimeTaken, Integer.MAX_VALUE));
         userAnswerRepository.save(userAnswer);
 
         QuestionResultResponse response = new QuestionResultResponse();
         response.setIsCorrect(isCorrect);
         response.setScore(finalScore);
-        response.setTimeTaken(request.getTimeTaken());
+        response.setTimeTaken(serverTimeTaken);
+        response.setServerTimeTaken(serverTimeTaken);
+        response.setAcceptedAt(now);
         response.setStreak(currentStreak);
         response.setStreakMultiplier(streakMultiplier);
 
-        // Find correct answer
-        List<Answer> correctAnswers = answerRepository.findByQuestionId(request.getQuestionId())
-                .stream().filter(Answer::getIsCorrect).collect(Collectors.toList());
-        Long correctAnswerId = correctAnswers.isEmpty() ? null : correctAnswers.get(0).getId();
-        response.setCorrectAnswerId(correctAnswerId);
-
         return response;
+    }
+
+    private Long asLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Long longValue) {
+            return longValue;
+        }
+        if (value instanceof Integer integerValue) {
+            return integerValue.longValue();
+        }
+        if (value instanceof Number numberValue) {
+            return numberValue.longValue();
+        }
+        if (value instanceof String stringValue && !stringValue.isBlank()) {
+            return Long.parseLong(stringValue);
+        }
+        return null;
     }
 
     private int calculatePlayerStreak(Long userId, Long roomId) {

@@ -62,7 +62,7 @@ public class MinioFileStorageServiceImplement implements IFileStorageService {
             );
 
             String presignedUrl = getPresignedUrl(minioConfig.getAvatarBucket(), fileName);
-            log.info("Successfully uploaded avatar: {} for user: {}, URL: {}", fileName, userId, presignedUrl);
+            log.info("Successfully uploaded avatar: {} for user: {}", fileName, userId);
             return presignedUrl;
 
         } catch (MinioException e) {

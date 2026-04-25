@@ -258,24 +258,7 @@ const GameRoom = () => {
                 streakMultiplier: result.streakMultiplier || 1.0
             });
 
-            // Kiểm tra xem có câu hỏi tiếp theo không
-            if (message.data.hasNextQuestion && message.data.nextQuestion) {
-                // Có câu tiếp theo - tự động chuyển sau khi popup hiển thị
-
-                const nextQ = message.data.nextQuestion;
-
-                // Delay 2.5 giây để người chơi xem kết quả trước khi chuyển câu
-                setTimeout(() => {
-                    setAnswerResult(null); // Đóng popup
-                    setCurrentQuestion(nextQ);
-                    setSelectedAnswer(null);
-                    hasAnsweredRef.current = false;
-                    setHasAnswered(false);
-                    setTimeRemaining(nextQ.timeLimit || 30);
-                    questionStartTimeRef.current = Date.now();
-                }, 2500);
-
-            } else if (message.data.completed) {
+            if (message.data.completed) {
                 // Player này đã hoàn thành tất cả câu hỏi
                 setTimeout(() => {
                     setAnswerResult(null);
@@ -306,17 +289,14 @@ const GameRoom = () => {
         );
         const answerId = selectedAnswerObj?.id;
 
-        const timeTaken = questionStartTimeRef.current ? Date.now() - questionStartTimeRef.current : 0;
-
-        // Gửi đến backend với tất cả các trường bắt buộc
+        // Backend tự tính timeTaken từ countdown server-authoritative.
         socketService.emit('submit-answer', {
             roomId: roomId,
             questionId: questionId,
             answerId: answerId,
             selectedAnswer: selectedAnswer,
             selectedOptionIndex: selectedOptionIndex,
-            answerText: selectedAnswer,
-            timeTaken: timeTaken
+            answerText: selectedAnswer
         });
 
         hasAnsweredRef.current = true;

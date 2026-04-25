@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConfigurationProperties(prefix = "jwt")
 public class JwtConfig {
-    @Value("${jwt.secret-key:defaultSecretKeyThatShouldBeChangedInProductionEnvironment1234567890}")
+    @Value("${jwt.secret-key}")
     private String secretKey;
 
     @Value("${jwt.access-expiration:86400000}")

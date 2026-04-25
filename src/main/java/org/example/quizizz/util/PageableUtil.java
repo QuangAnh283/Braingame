@@ -4,14 +4,40 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import java.util.Set;
+
 public class PageableUtil {
+
+    private static final int MAX_PAGE_SIZE = 100;
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+            "id",
+            "name",
+            "title",
+            "username",
+            "email",
+            "fullName",
+            "roleName",
+            "permissionName",
+            "questionText",
+            "answerText",
+            "createdAt",
+            "updatedAt"
+    );
     
     public static Pageable createPageable(int page, int size, String sort) {
-        String[] sortParams = sort.split(",");
+        int sanitizedPage = Math.max(page, 0);
+        int sanitizedSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
+
+        if (sort == null || sort.isBlank()) {
+            sort = "id,desc";
+        }
+
+        String[] sortParams = sort.split(",", 2);
+        String sortField = ALLOWED_SORT_FIELDS.contains(sortParams[0]) ? sortParams[0] : "id";
         Sort.Direction direction = sortParams.length > 1 && sortParams[1].equalsIgnoreCase("asc") 
                 ? Sort.Direction.ASC 
                 : Sort.Direction.DESC;
         
-        return PageRequest.of(page, size, Sort.by(direction, sortParams[0]));
+        return PageRequest.of(sanitizedPage, sanitizedSize, Sort.by(direction, sortField));
     }
 }

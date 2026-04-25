@@ -5,6 +5,7 @@ import org.example.quizizz.repository.PermissionRepository;
 import org.example.quizizz.service.Interface.IRedisService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
@@ -38,30 +39,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         String path = request.getRequestURI();
 
-        if (
-                path.startsWith("/api/v1/auth") ||
-                        path.startsWith("/swagger-ui") ||
-                        path.startsWith("/v3/api-docs") ||
-                        path.startsWith("/swagger-resources") ||
-                        path.startsWith("/webjars") ||
-                        path.equals("/swagger-ui.html") ||
-                        path.equals("/error")
-        ) {
+        if (isPublicPath(path)) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String token = request.getHeader("Authorization");
-        if (token == null) {
-            token = request.getHeader("accessToken");
-        }
+        String token = resolveToken(request);
 
-        if (token != null && token.startsWith("Bearer ")) {
-            token = token.substring(7);
-
+        if (token != null && !token.isBlank()) {
             try {
                 if (!jwtUtil.validateToken(token)) {
                     response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token không hợp lệ");
+                    return;
+                }
+                if (!jwtUtil.isAccessToken(token)) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token không đúng loại");
                     return;
                 }
                 if (redisService.isTokenBlacklisted(token)) {
@@ -69,6 +61,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
                 Long userId = jwtUtil.getUserIdFromToken(token);
+                if (jwtUtil.getTokenVersion(token) != redisService.getUserTokenVersion(userId)) {
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token đã bị thu hồi");
+                    return;
+                }
                 String typeAccount = jwtUtil.getClaimFromToken(token, claims -> claims.get("typeAccount", String.class));
                 Collection<SimpleGrantedAuthority> authorities = getAuthoritiesFromRedis(userId);
 
@@ -84,6 +80,53 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    private String resolveToken(HttpServletRequest request) {
+        String token = request.getHeader("Authorization");
+        if (token != null && token.startsWith("Bearer ")) {
+            return token.substring(7);
+        }
+
+        token = request.getHeader("accessToken");
+        if (token != null && token.startsWith("Bearer ")) {
+            return token.substring(7);
+        }
+        if (token != null && !token.isBlank()) {
+            return token;
+        }
+
+        if (request.getCookies() == null) {
+            return null;
+        }
+        for (Cookie cookie : request.getCookies()) {
+            if ("accessToken".equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
+    private boolean isPublicPath(String path) {
+        if (path.startsWith("/api/v1/auth/logout") || path.startsWith("/api/v1/auth/change-password")) {
+            return false;
+        }
+        if (path.startsWith("/api/v1/auth")) {
+            return true;
+        }
+        if (path.equals("/actuator/health") || path.startsWith("/actuator/health/")) {
+            return true;
+        }
+        if (path.startsWith("/actuator/")) {
+            return false;
+        }
+        return path.startsWith("/swagger-ui") ||
+                path.startsWith("/v3/api-docs") ||
+                path.startsWith("/swagger-resources") ||
+                path.startsWith("/webjars") ||
+                path.equals("/swagger-ui.html") ||
+                path.equals("/error") ||
+                !path.startsWith("/api/");
     }
 
     private Collection<SimpleGrantedAuthority> getAuthoritiesFromRedis(Long userId) {

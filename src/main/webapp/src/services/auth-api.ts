@@ -79,10 +79,10 @@ const forgotPassword = async (email) => {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       throw new Error('Email không hợp lệ');
     }
-    const res = await api.post('/auth/reset-password', { email });
+    const res = await api.post('/auth/forgot-password', { email });
     return {
       status: res.status,
-      message: res.data.message || 'Mật khẩu mới đã được gửi đến email của bạn',
+      message: res.data.message || 'Link đặt lại mật khẩu đã được gửi đến email của bạn',
       data: res.data.data,
       isSuccess: res.status === 200,
       timestamp: res.data.timestamp || new Date().toISOString(),
@@ -92,6 +92,34 @@ const forgotPassword = async (email) => {
         error.response?.data?.message ||
         error.message ||
         'Email không tồn tại hoặc không thể gửi email';
+    throw new Error(errorMessage);
+  }
+};
+
+const confirmResetPassword = async ({ token, newPassword, confirmPassword }) => {
+  try {
+    if (!token || !newPassword || !confirmPassword) {
+      throw new Error('Vui lòng cung cấp đầy đủ thông tin đặt lại mật khẩu');
+    }
+    if (newPassword.length < 8) {
+      throw new Error('Mật khẩu phải có ít nhất 8 ký tự');
+    }
+    if (newPassword !== confirmPassword) {
+      throw new Error('Mật khẩu xác nhận không khớp');
+    }
+    const res = await api.post('/auth/reset-password/confirm', { token, newPassword, confirmPassword });
+    return {
+      status: res.status,
+      message: res.data.message || 'Đặt lại mật khẩu thành công',
+      data: res.data.data,
+      isSuccess: res.status === 200,
+      timestamp: res.data.timestamp || new Date().toISOString(),
+    };
+  } catch (error) {
+    const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        'Không thể đặt lại mật khẩu';
     throw new Error(errorMessage);
   }
 };
@@ -180,6 +208,7 @@ export default {
   register,
   logout,
   forgotPassword,
+  confirmResetPassword,
   getUser,
   refreshToken,
   getAvatar,

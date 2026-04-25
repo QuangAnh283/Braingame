@@ -3,6 +3,7 @@ package org.example.quizizz.service.Implement;
 import org.example.quizizz.service.Interface.IEmailService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -24,28 +25,31 @@ public class EmailServiceImplement implements IEmailService {
     private final String fromEmail;
     private final String companyName;
     private final String supportUrl;
+    private final String frontendBaseUrl;
 
     public EmailServiceImplement(JavaMailSender javaMailSender,
                                  TemplateEngine templateEngine,
                                  @Qualifier("fromEmail") String fromEmail,
                                  @Qualifier("companyName") String companyName,
-                                 @Qualifier("supportUrl") String supportUrl) {
+                                 @Qualifier("supportUrl") String supportUrl,
+                                 @Value("${app.frontend.base-url:http://localhost:5173}") String frontendBaseUrl) {
         this.javaMailSender = javaMailSender;
         this.emailTemplateEngine = templateEngine;
         this.fromEmail = fromEmail;
         this.companyName = companyName;
         this.supportUrl = supportUrl;
+        this.frontendBaseUrl = frontendBaseUrl;
     }
 
     /**
      * Gửi email reset mật khẩu cho người dùng.
      * @param toEmail Email người nhận
      * @param username Tên người dùng
-     * @param newPassword Mật khẩu mới
+     * @param resetToken Token reset mật khẩu
      * @return true nếu gửi thành công, false nếu lỗi
      */
     @Override
-    public boolean sendPasswordResetEmail(String toEmail, String username, String newPassword) {
+    public boolean sendPasswordResetEmail(String toEmail, String username, String resetToken) {
         try {
 
             MimeMessage message = javaMailSender.createMimeMessage();
@@ -57,9 +61,10 @@ public class EmailServiceImplement implements IEmailService {
             helper.setSubject("Reset Mật Khẩu - " + companyName);
 
             // Tạo context cho Thymeleaf template
+            String resetUrl = frontendBaseUrl + "/reset-password?token=" + resetToken;
             Context context = new Context();
             context.setVariable("username", username);
-            context.setVariable("newResetPassword", newPassword);
+            context.setVariable("resetUrl", resetUrl);
             context.setVariable("companyName", companyName);
             context.setVariable("supportUrl", supportUrl);
             context.setVariable("year", LocalDateTime.now().getYear());
@@ -99,7 +104,7 @@ public class EmailServiceImplement implements IEmailService {
             helper.setSubject("Xác thực tài khoản - " + companyName);
 
             // Tạo URL xác thực (frontend URL)
-            String verificationUrl = "http://localhost:5173/verify-email?token=" + verificationToken;
+            String verificationUrl = frontendBaseUrl + "/verify-email?token=" + verificationToken;
 
             // Tạo context cho Thymeleaf template
             Context context = new Context();

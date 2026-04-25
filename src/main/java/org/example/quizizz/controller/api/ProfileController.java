@@ -19,12 +19,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/profile")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 @Tag(name = "Profile", description = "APIs liên quan đến hồ sơ người dùng")
 public class ProfileController {
 
@@ -81,6 +82,10 @@ public class ProfileController {
             if (contentType == null || !contentType.startsWith("image/")) {
                 return ResponseEntity.badRequest().body(ApiResponse.error(400, MessageCode.INVALID_FILE_TYPE));
             }
+
+            if (!isSupportedImage(file)) {
+                return ResponseEntity.badRequest().body(ApiResponse.error(400, MessageCode.INVALID_FILE_TYPE));
+            }
             
             if (file.getSize() > 5 * 1024 * 1024) {
                 return ResponseEntity.badRequest().body(ApiResponse.error(400, MessageCode.FILE_TOO_LARGE));
@@ -89,8 +94,33 @@ public class ProfileController {
             UpdateAvatarResponse response = profileService.updateAvatar(userId, file);
             return ResponseEntity.ok(ApiResponse.success(MessageCode.AVATAR_UPDATED, response));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(ApiResponse.error(500, MessageCode.INTERNAL_SERVER_ERROR, "Lỗi upload avatar: " + e.getMessage()));
+            return ResponseEntity.internalServerError().body(ApiResponse.error(500, MessageCode.INTERNAL_SERVER_ERROR, "Lỗi upload avatar"));
         }
+    }
+
+    private boolean isSupportedImage(MultipartFile file) throws IOException {
+        byte[] header = new byte[12];
+        int bytesRead;
+        try (InputStream inputStream = file.getInputStream()) {
+            bytesRead = inputStream.read(header);
+        }
+
+        if (bytesRead < 4) {
+            return false;
+        }
+
+        boolean jpeg = (header[0] & 0xFF) == 0xFF && (header[1] & 0xFF) == 0xD8 && (header[2] & 0xFF) == 0xFF;
+        boolean png = bytesRead >= 8 &&
+                (header[0] & 0xFF) == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47 &&
+                header[4] == 0x0D && header[5] == 0x0A && header[6] == 0x1A && header[7] == 0x0A;
+        boolean gif = bytesRead >= 6 &&
+                header[0] == 0x47 && header[1] == 0x49 && header[2] == 0x46 &&
+                header[3] == 0x38 && (header[4] == 0x37 || header[4] == 0x39) && header[5] == 0x61;
+        boolean webp = bytesRead >= 12 &&
+                header[0] == 0x52 && header[1] == 0x49 && header[2] == 0x46 && header[3] == 0x46 &&
+                header[8] == 0x57 && header[9] == 0x45 && header[10] == 0x42 && header[11] == 0x50;
+
+        return jpeg || png || gif || webp;
     }
 
     @GetMapping("/avatar")

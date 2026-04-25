@@ -11,7 +11,9 @@ public class QuestionResultResponse {
     private Boolean isCorrect;
     private Integer score;
     private Long timeTaken;
-    private Long correctAnswerId;
+    private Long serverTimeTaken;
+    private Long acceptedAt;
+    private String reason;
     private Integer streak;
     private Double streakMultiplier;
 }

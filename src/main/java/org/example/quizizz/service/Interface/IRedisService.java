@@ -36,6 +36,10 @@ public interface IRedisService {
 
     boolean isTokenBlacklisted(String token);
 
+    long getUserTokenVersion(Long userId);
+
+    long incrementUserTokenVersion(Long userId);
+
     /**
      * Online users
      */

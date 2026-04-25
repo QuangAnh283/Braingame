@@ -31,6 +31,7 @@ public interface UserMapper {
     @Mapping(target = "refreshToken", source = "refreshToken")
     @Mapping(target = "username", source = "user.username")
     @Mapping(target = "fullName", source = "user.fullName")
+    @Mapping(target = "typeAccount", source = "user.typeAccount")
     LoginResponse toLoginResponse(User user, String accessToken, String refreshToken);
 
     UserResponse toUserResponse(User user);

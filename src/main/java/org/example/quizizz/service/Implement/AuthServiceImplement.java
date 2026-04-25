@@ -1,6 +1,5 @@
 package org.example.quizizz.service.Implement;
 
-import org.example.quizizz.common.config.JwtConfig;
 import org.example.quizizz.common.constants.MessageCode;
 import org.example.quizizz.common.constants.PermissionCode;
 import org.example.quizizz.common.constants.RoleCode;
@@ -18,7 +17,6 @@ import org.example.quizizz.security.JwtUtil;
 import org.example.quizizz.service.Interface.IAuthService;
 import org.example.quizizz.service.Interface.IEmailService;
 import org.example.quizizz.service.Interface.IRedisService;
-import org.example.quizizz.util.PasswordGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -26,7 +24,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -35,6 +37,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class AuthServiceImplement implements IAuthService {
+
+    private static final String RESET_TOKEN_PREFIX = "RESET:";
 
     private final UserRepository userRepository;
     private final UserMapper userMapper;
@@ -45,8 +49,6 @@ public class AuthServiceImplement implements IAuthService {
     private final UserRoleRepository userRoleRepository;
     private final PermissionRepository permissionRepository;
     private final IEmailService emailService;
-    private final PasswordGenerator passwordGenerator;
-    private final JwtConfig jwtConfig;
     private final PlayerProfileServiceImplement playerProfileService;
 
     @Override
@@ -132,8 +134,9 @@ public class AuthServiceImplement implements IAuthService {
         // Làm mới quyền trong Redis mỗi lần login
         refreshUserPermissionsInRedis(user.getId());
 
-        String accessToken = jwtUtil.generateAccessToken(user.getId(), user.getTypeAccount(), "BRONZE");
-        String refreshToken = jwtUtil.generateRefreshToken(user.getId());
+        long tokenVersion = redisService.getUserTokenVersion(user.getId());
+        String accessToken = jwtUtil.generateAccessToken(user.getId(), user.getTypeAccount(), "BRONZE", tokenVersion);
+        String refreshToken = jwtUtil.generateRefreshToken(user.getId(), tokenVersion);
 
         return userMapper.toLoginResponse(user, accessToken, refreshToken);
     }
@@ -149,9 +152,7 @@ public class AuthServiceImplement implements IAuthService {
             userRepository.save(user);
             redisService.setUserOffline(userId);
 
-            // Lấy thời gian hết hạn của refresh token từ config
-            long refreshTokenExpiration = System.currentTimeMillis() + jwtConfig.getRefreshExpiration();
-            redisService.addTokenToBlacklistWithRefreshTTL(token, refreshTokenExpiration);
+            redisService.addTokenToBlacklistWithRefreshTTL(token, jwtUtil.getExpirationTimeMillis(token));
 
         } catch (Exception e) {
             throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.AUTH_INVALID_TOKEN, "Invalid token");
@@ -161,18 +162,25 @@ public class AuthServiceImplement implements IAuthService {
     @Override
     public LoginResponse refreshToken(String refreshToken) {
         try {
-            if (!jwtUtil.validateToken(refreshToken)) {
+            if (!jwtUtil.validateToken(refreshToken) ||
+                    !jwtUtil.isRefreshToken(refreshToken) ||
+                    redisService.isTokenBlacklisted(refreshToken)) {
                 throw new ApiException(HttpStatus.UNAUTHORIZED.value(), MessageCode.AUTH_INVALID_TOKEN, "Invalid or expired refresh token");
             }
             Long userId = jwtUtil.getUserIdFromToken(refreshToken);
+            long tokenVersion = redisService.getUserTokenVersion(userId);
+            if (jwtUtil.getTokenVersion(refreshToken) != tokenVersion) {
+                throw new ApiException(HttpStatus.UNAUTHORIZED.value(), MessageCode.AUTH_INVALID_TOKEN, "Invalid or expired refresh token");
+            }
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND.value(), MessageCode.USER_NOT_FOUND));
 
             // Làm mới quyền khi refresh token
             refreshUserPermissionsInRedis(userId);
 
-            String newAccessToken = jwtUtil.generateAccessToken(user.getId(), user.getTypeAccount(), "BRONZE");
-            String newRefreshToken = jwtUtil.generateRefreshToken(user.getId());
+            String newAccessToken = jwtUtil.generateAccessToken(user.getId(), user.getTypeAccount(), "BRONZE", tokenVersion);
+            String newRefreshToken = jwtUtil.generateRefreshToken(user.getId(), tokenVersion);
+            redisService.addTokenToBlacklistWithRefreshTTL(refreshToken, jwtUtil.getExpirationTimeMillis(refreshToken));
 
             return userMapper.toLoginResponse(user, newAccessToken, newRefreshToken);
 
@@ -184,27 +192,21 @@ public class AuthServiceImplement implements IAuthService {
     @Override
     public ResetPasswordResponse resetPassword(ResetPasswordRequest request) {
         try {
-            // 1. Tìm user theo email
-            User user = userRepository.findByEmail(request.getEmail())
-                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND.value(),
-                            MessageCode.USER_NOT_FOUND, "User not found with email: " + request.getEmail()));
+            User user = userRepository.findByEmail(request.getEmail()).orElse(null);
+            String genericMessage = "If the email exists, a reset link has been sent.";
+            if (user == null) {
+                return new ResetPasswordResponse(genericMessage, request.getEmail());
+            }
 
-            // 2. Generate password mới
-            String newPassword = passwordGenerator.generateSecurePassword();
-
-            // 3. Hash và cập nhật password trong database
-            String hashedPassword = passwordEncoder.encode(newPassword);
-            user.setPassword(hashedPassword);
+            String resetToken = generateResetToken();
+            user.setVerificationToken(RESET_TOKEN_PREFIX + hashResetToken(resetToken));
+            user.setVerificationTokenExpiry(LocalDateTime.now().plusMinutes(30));
             userRepository.save(user);
 
-            // 4. Logout tất cả devices của user này
-            logoutAllDevices(user.getId());
-
-            // 5. Gửi email với password mới
             boolean emailSent = emailService.sendPasswordResetEmail(
                     request.getEmail(),
                     user.getUsername(),
-                    newPassword
+                    resetToken
             );
 
             if (!emailSent) {
@@ -212,7 +214,7 @@ public class AuthServiceImplement implements IAuthService {
                         MessageCode.AUTH_EMAIL_SEND_FAILED, "Failed to send reset password email");
             }
 
-            return new ResetPasswordResponse("Password reset successfully. Please check your email for the new password.", request.getEmail());
+            return new ResetPasswordResponse(genericMessage, request.getEmail());
 
         } catch (ApiException e) {
             throw e;
@@ -220,6 +222,31 @@ public class AuthServiceImplement implements IAuthService {
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                     MessageCode.AUTH_PASSWORD_RESET_FAILED, "Password reset failed");
         }
+    }
+
+    @Override
+    public ResetPasswordResponse confirmResetPassword(ConfirmResetPasswordRequest request) {
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(),
+                    MessageCode.AUTH_PASSWORD_MISMATCH, "New password and confirm password do not match");
+        }
+
+        User user = userRepository.findByVerificationToken(RESET_TOKEN_PREFIX + hashResetToken(request.getToken()))
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST.value(),
+                        MessageCode.AUTH_INVALID_TOKEN, "Invalid reset token"));
+
+        if (user.getVerificationTokenExpiry() == null || user.getVerificationTokenExpiry().isBefore(LocalDateTime.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(),
+                    MessageCode.AUTH_INVALID_TOKEN, "Reset token has expired");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setVerificationToken(null);
+        user.setVerificationTokenExpiry(null);
+        userRepository.save(user);
+        logoutAllDevices(user.getId());
+
+        return new ResetPasswordResponse("Password reset successfully.", user.getEmail());
     }
 
     @Override
@@ -244,6 +271,7 @@ public class AuthServiceImplement implements IAuthService {
         // Update password
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+        logoutAllDevices(user.getId());
 
         return new ChangePasswordResponse("Password changed successfully", user.getUsername());
     }
@@ -265,10 +293,7 @@ public class AuthServiceImplement implements IAuthService {
             // Xóa cache permissions của user (force refresh khi login lại)
             redisService.deleteUserPermissionsCache(userId);
 
-            // Note: Trong thực tế, ta cần blacklist tất cả JWT tokens của user này
-            // Nhưng vì JWT là stateless, cách đơn giản nhất là thay đổi secret key hoặc
-            // lưu thời gian logout trong database và kiểm tra khi validate token
-            // Ở đây ta sẽ implement cách đơn giản bằng cách lưu thời gian logout
+            redisService.incrementUserTokenVersion(userId);
 
         } catch (Exception e) {
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR.value(),
@@ -283,6 +308,11 @@ public class AuthServiceImplement implements IAuthService {
             User user = userRepository.findByVerificationToken(token)
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND.value(),
                             MessageCode.USER_NOT_FOUND, "Invalid verification token"));
+
+            if (user.getVerificationToken() != null && user.getVerificationToken().startsWith(RESET_TOKEN_PREFIX)) {
+                throw new ApiException(HttpStatus.BAD_REQUEST.value(),
+                        MessageCode.AUTH_INVALID_TOKEN, "Invalid verification token");
+            }
 
             // Kiểm tra token đã hết hạn chưa
             if (user.getVerificationTokenExpiry().isBefore(LocalDateTime.now())) {
@@ -340,5 +370,22 @@ public class AuthServiceImplement implements IAuthService {
     @Override
     public Long countUsers() {
         return userRepository.count();
+    }
+
+    private String generateResetToken() {
+        byte[] bytes = new byte[32];
+        new SecureRandom().nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String hashResetToken(String token) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+        } catch (Exception e) {
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    MessageCode.INTERNAL_ERROR, "Failed to process reset token");
+        }
     }
 }

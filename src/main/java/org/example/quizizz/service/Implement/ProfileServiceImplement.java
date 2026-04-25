@@ -141,11 +141,6 @@ public class ProfileServiceImplement implements IProfileService {
         response.setId(user.getId());
         response.setUsername(user.getUsername());
         response.setFullName(user.getFullName());
-        response.setEmail(user.getEmail());
-        response.setPhoneNumber(user.getPhoneNumber());
-        response.setAddress(user.getAddress());
-        response.setDob(user.getDob());
-        response.setCreatedAt(user.getCreatedAt());
         response.setAvatarURL(user.getAvatarURL()); // avatarURL đã là presignedUrl
         
         return response;

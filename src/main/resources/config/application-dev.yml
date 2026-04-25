@@ -55,3 +55,6 @@ minio:
   public-endpoint: ${MINIO_PUBLIC_ENDPOINT:http://localhost:9000}
   access-key: ${MINIO_ACCESS_KEY:minioadmin}
   secret-key: ${MINIO_SECRET_KEY:minioadmin123}
+
+jwt:
+  secret-key: ${JWT_SECRET_KEY:820370665f3840fdd097ddfef080afea0260702bc53f27901c61034467ab98a4d02962b5a058e6e297006f8849bf4686186f6f917f9471bcca4eaeca76c64cd4}

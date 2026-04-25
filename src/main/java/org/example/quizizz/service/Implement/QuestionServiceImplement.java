@@ -1,5 +1,6 @@
 package org.example.quizizz.service.Implement;
 
+import org.example.quizizz.mapper.AnswerMapper;
 import org.example.quizizz.mapper.QuestionMapper;
 import org.example.quizizz.model.dto.question.*;
 import org.example.quizizz.model.entity.Answer;
@@ -12,6 +13,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,10 +27,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional
 public class QuestionServiceImplement implements IQuestionService {
+
+    private static final int MAX_RANDOM_QUESTIONS = 50;
     
     private final QuestionRepository questionRepository;
     private final AnswerRepository answerRepository;
     private final QuestionMapper questionMapper;
+    private final AnswerMapper answerMapper;
     private final org.example.quizizz.repository.ExamRepository examRepository;
     
     @Override
@@ -38,19 +43,20 @@ public class QuestionServiceImplement implements IQuestionService {
 
     @Override
     public List<QuestionWithAnswersResponse> getRandomQuestionsWithAnswers(Long examId, String questionType, int count) {
-        List<Question> questions = getRandomQuestions(examId, questionType, count);
+        List<Question> questions = getRandomQuestions(examId, questionType, sanitizeCount(count));
         return questions.stream().map(this::mapToQuestionWithAnswers).toList();
     }
 
     @Override
     public List<QuestionWithAnswersResponse> getRandomQuestionsForPlayer(Long examId, String questionType, int count, Long playerId) {
         List<Question> allQuestions = getAllQuestions(examId, questionType);
+        int sanitizedCount = sanitizeCount(count);
         
         // Shuffle based on playerId for consistent randomization per player
         Random random = new Random(playerId.hashCode());
         Collections.shuffle(allQuestions, random);
         
-        List<Question> playerQuestions = allQuestions.stream().limit(count).toList();
+        List<Question> playerQuestions = allQuestions.stream().limit(sanitizedCount).toList();
         return playerQuestions.stream().map(this::mapToQuestionWithAnswers).toList();
     }
 
@@ -72,16 +78,16 @@ public class QuestionServiceImplement implements IQuestionService {
         } else if (questionType != null) {
             return questionRepository.findRandomQuestionsByType(questionType, count);
         }
-        return questionRepository.findAll().stream().limit(count).toList();
+        return questionRepository.findRandomQuestions(count);
     }
 
     private List<Question> getAllQuestions(Long examId, String questionType) {
         if (examId != null && questionType != null) {
-            return questionRepository.findAll().stream()
-                .filter(q -> q.getExamId().equals(examId) && q.getQuestionType().equals(questionType))
-                .toList();
+            return questionRepository.findByExamIdAndQuestionType(examId, questionType);
         } else if (examId != null) {
             return questionRepository.findByExamId(examId);
+        } else if (questionType != null) {
+            return questionRepository.findByQuestionType(questionType);
         }
         return questionRepository.findAll();
     }
@@ -93,7 +99,7 @@ public class QuestionServiceImplement implements IQuestionService {
             question.getQuestionText(),
             question.getExamId(),
             question.getQuestionType(),
-            answers
+            answers.stream().map(answerMapper::toResponse).collect(Collectors.toList())
         );
     }
 
@@ -188,7 +194,6 @@ public class QuestionServiceImplement implements IQuestionService {
     public org.example.quizizz.model.dto.PageResponse<QuestionWithAnswersResponse> searchByTeacher(
             String keyword, Long examId, String questionType, Long teacherId, Pageable pageable) {
         
-        // Lấy danh sách examIds của teacher
         java.util.List<Long> teacherExamIds = examRepository.findByTeacherId(teacherId)
             .stream()
             .map(org.example.quizizz.model.entity.Exam::getId)
@@ -199,36 +204,38 @@ public class QuestionServiceImplement implements IQuestionService {
                 java.util.Collections.emptyList(), pageable.getPageNumber(), pageable.getPageSize(), 0, 0, true, true
             );
         }
-        
-        // Filter questions theo examIds của teacher
-        org.springframework.data.domain.Page<Question> allQuestions = questionRepository.findAll(pageable);
-        
-        java.util.List<QuestionWithAnswersResponse> filteredQuestions = allQuestions.getContent().stream()
-            .filter(q -> q.getExamId() != null && teacherExamIds.contains(q.getExamId()))
-            .filter(q -> examId == null || q.getExamId().equals(examId))
-            .filter(q -> questionType == null || questionType.equals(q.getQuestionType()))
-            .filter(q -> keyword == null || keyword.trim().isEmpty() || 
-                q.getQuestionText().toLowerCase().contains(keyword.toLowerCase()))
-            .map(this::mapToQuestionWithAnswers)
-            .collect(Collectors.toList());
-        
-        // Tính toán pagination thủ công
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), filteredQuestions.size());
-        java.util.List<QuestionWithAnswersResponse> pageContent = 
-            start < filteredQuestions.size() ? filteredQuestions.subList(start, end) : java.util.Collections.emptyList();
-        
-        int totalElements = filteredQuestions.size();
-        int totalPages = (int) Math.ceil((double) totalElements / pageable.getPageSize());
-        
-        return new org.example.quizizz.model.dto.PageResponse<>(
-            pageContent,
-            pageable.getPageNumber(),
-            pageable.getPageSize(),
-            totalElements,
-            totalPages,
-            pageable.getPageNumber() == 0,
-            pageable.getPageNumber() >= totalPages - 1
-        );
+
+        boolean hasKeyword = keyword != null && !keyword.trim().isEmpty();
+        Page<Question> questions;
+
+        if (examId != null) {
+            if (!teacherExamIds.contains(examId)) {
+                questions = new PageImpl<>(java.util.Collections.emptyList(), pageable, 0);
+            } else if (questionType != null && hasKeyword) {
+                questions = questionRepository.findByExamIdAndQuestionTypeAndQuestionTextContainingIgnoreCase(
+                        examId, questionType, keyword, pageable);
+            } else if (questionType != null) {
+                questions = questionRepository.findByExamIdAndQuestionType(examId, questionType, pageable);
+            } else if (hasKeyword) {
+                questions = questionRepository.findByExamIdAndQuestionTextContainingIgnoreCase(examId, keyword, pageable);
+            } else {
+                questions = questionRepository.findByExamIdIn(java.util.List.of(examId), pageable);
+            }
+        } else if (questionType != null && hasKeyword) {
+            questions = questionRepository.findByExamIdInAndQuestionTypeAndQuestionTextContainingIgnoreCase(
+                    teacherExamIds, questionType, keyword, pageable);
+        } else if (questionType != null) {
+            questions = questionRepository.findByExamIdInAndQuestionType(teacherExamIds, questionType, pageable);
+        } else if (hasKeyword) {
+            questions = questionRepository.findByExamIdInAndQuestionTextContainingIgnoreCase(teacherExamIds, keyword, pageable);
+        } else {
+            questions = questionRepository.findByExamIdIn(teacherExamIds, pageable);
+        }
+
+        return org.example.quizizz.model.dto.PageResponse.of(questions.map(this::mapToQuestionWithAnswers));
+    }
+
+    private int sanitizeCount(int count) {
+        return Math.max(1, Math.min(count, MAX_RANDOM_QUESTIONS));
     }
 }

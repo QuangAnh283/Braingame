@@ -6,10 +6,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.quizizz.common.config.ApiResponse;
 import org.example.quizizz.common.constants.MessageCode;
+import org.example.quizizz.common.security.ResourceOwnershipService;
 import org.example.quizizz.model.dto.PageResponse;
 import org.example.quizizz.model.dto.exam.CreateExamRequest;
 import org.example.quizizz.model.dto.exam.ExamResponse;
 import org.example.quizizz.model.dto.exam.UpdateExamRequest;
+import org.example.quizizz.security.JwtAuthenticationToken;
 import org.example.quizizz.service.Interface.IExamService;
 import org.example.quizizz.util.PageableUtil;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +28,7 @@ import java.util.List;
 public class ExamController {
 
     private final IExamService examService;
+    private final ResourceOwnershipService resourceOwnershipService;
 
     @PostMapping
     @PreAuthorize("hasAuthority('topic:manage')")
@@ -43,7 +46,9 @@ public class ExamController {
     @Operation(summary = "Cập nhật đề thi", description = "Cập nhật thông tin đề thi theo ID")
     public ResponseEntity<ApiResponse<ExamResponse>> update(
             @PathVariable Long id,
-            @RequestBody UpdateExamRequest request) {
+            @RequestBody UpdateExamRequest request,
+            Authentication authentication) {
+        assertCanManageExam(id, authentication);
         ExamResponse response = examService.update(id, request);
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, response));
     }
@@ -51,7 +56,8 @@ public class ExamController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('topic:manage')")
     @Operation(summary = "Xóa đề thi", description = "Xóa đề thi và tất cả câu hỏi, đáp án của đề thi")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id, Authentication authentication) {
+        assertCanManageExam(id, authentication);
         examService.delete(id);
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, null));
     }
@@ -67,11 +73,11 @@ public class ExamController {
     @Operation(summary = "Lấy tất cả đề thi", description = "Lấy danh sách tất cả đề thi (teacher chỉ xem của mình)")
     public ResponseEntity<ApiResponse<List<ExamResponse>>> getAll(Authentication authentication) {
         Long teacherId = (Long) authentication.getPrincipal();
-        org.example.quizizz.security.JwtAuthenticationToken auth = (org.example.quizizz.security.JwtAuthenticationToken) authentication;
+        JwtAuthenticationToken auth = (JwtAuthenticationToken) authentication;
         String typeAccount = auth.getTypeAccount();
         
         List<ExamResponse> response;
-        if ("TEACHER".equals(typeAccount)) {
+        if (!resourceOwnershipService.isAdmin(typeAccount)) {
             response = examService.getByTeacherId(teacherId);
         } else {
             response = examService.getAll();
@@ -83,11 +89,11 @@ public class ExamController {
     @Operation(summary = "Lấy đề thi theo chủ đề", description = "Lấy danh sách đề thi thuộc một chủ đề (teacher chỉ xem của mình)")
     public ResponseEntity<ApiResponse<List<ExamResponse>>> getByTopicId(@PathVariable Long topicId, Authentication authentication) {
         Long teacherId = (Long) authentication.getPrincipal();
-        org.example.quizizz.security.JwtAuthenticationToken auth = (org.example.quizizz.security.JwtAuthenticationToken) authentication;
+        JwtAuthenticationToken auth = (JwtAuthenticationToken) authentication;
         String typeAccount = auth.getTypeAccount();
         
         List<ExamResponse> response = examService.getByTopicId(topicId);
-        if ("TEACHER".equals(typeAccount)) {
+        if (!resourceOwnershipService.isAdmin(typeAccount)) {
             response = response.stream()
                 .filter(exam -> exam.getTeacherId() != null && exam.getTeacherId().equals(teacherId))
                 .collect(java.util.stream.Collectors.toList());
@@ -106,11 +112,11 @@ public class ExamController {
             Authentication authentication) {
 
         Long teacherId = (Long) authentication.getPrincipal();
-        org.example.quizizz.security.JwtAuthenticationToken auth = (org.example.quizizz.security.JwtAuthenticationToken) authentication;
+        JwtAuthenticationToken auth = (JwtAuthenticationToken) authentication;
         String typeAccount = auth.getTypeAccount();
         
         PageResponse<ExamResponse> response;
-        if ("TEACHER".equals(typeAccount)) {
+        if (!resourceOwnershipService.isAdmin(typeAccount)) {
             response = PageResponse.of(
                 examService.searchByTeacher(keyword, topicId, teacherId, PageableUtil.createPageable(page, size, sort)));
         } else {
@@ -151,5 +157,11 @@ public class ExamController {
         PageResponse<ExamResponse> response = PageResponse.of(
                 examService.searchByTeacher(keyword, topicId, teacherId, PageableUtil.createPageable(page, size, sort)));
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, response));
+    }
+
+    private void assertCanManageExam(Long examId, Authentication authentication) {
+        Long userId = (Long) authentication.getPrincipal();
+        String typeAccount = ((JwtAuthenticationToken) authentication).getTypeAccount();
+        resourceOwnershipService.assertCanManageExam(examId, userId, typeAccount);
     }
 }

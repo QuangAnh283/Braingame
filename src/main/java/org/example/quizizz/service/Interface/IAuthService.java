@@ -8,6 +8,7 @@ public interface IAuthService {
     void logout(String token);
     LoginResponse refreshToken(String refreshToken);
     ResetPasswordResponse resetPassword(ResetPasswordRequest request);
+    ResetPasswordResponse confirmResetPassword(ConfirmResetPasswordRequest request);
     ChangePasswordResponse changePassword(Long userId, ChangePasswordRequest request);
     void logoutAllDevices(Long userId);
     boolean verifyEmail(String token);

@@ -7,14 +7,14 @@ package org.example.quizizz.service.Interface;
 public interface IEmailService {
 
     /**
-     * Gửi email reset password với mật khẩu mới
+     * Gửi email reset password với link/token một lần
      *
      * @param toEmail email người nhận
      * @param username tên người dùng
-     * @param newPassword mật khẩu mới
+     * @param resetToken token reset mật khẩu
      * @return true nếu gửi thành công, false nếu thất bại
      */
-    boolean sendPasswordResetEmail(String toEmail, String username, String newPassword);
+    boolean sendPasswordResetEmail(String toEmail, String username, String resetToken);
 
     /**
      * Gửi email xác thực tài khoản khi đăng ký

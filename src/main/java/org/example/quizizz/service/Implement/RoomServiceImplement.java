@@ -14,12 +14,12 @@ import org.example.quizizz.model.entity.RoomPlayers;
 import org.example.quizizz.model.entity.User;
 import org.example.quizizz.repository.*;
 import org.example.quizizz.service.Interface.IRoomService;
+import org.example.quizizz.util.PageableUtil;
 import org.example.quizizz.util.RoomCodeGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -414,7 +414,7 @@ public class RoomServiceImplement implements IRoomService {
 
     @Override
     public PagedRoomResponse getAllRoomsSimple(int page, int size, String search) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageableUtil.createPageable(page, size, "createdAt,desc");
         Page<Room> roomPage;
 
         // Chỉ lấy phòng WAITING, không filter phức tạp

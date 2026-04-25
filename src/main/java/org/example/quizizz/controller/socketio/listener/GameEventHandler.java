@@ -119,17 +119,18 @@ public class GameEventHandler {
                 log.info("📝 User {} submitting answer for question {} in room {}",
                     userId, data.getQuestionId(), data.getRoomId());
 
-                Long answerId = gameService.resolveAnswerId(
-                        data.getQuestionId(),
-                        data.getSelectedOptionIndex(),
-                        data.getSelectedAnswer(),
-                        data.getAnswerText()
-                );
+                Long answerId = data.getAnswerId() != null
+                        ? data.getAnswerId()
+                        : gameService.resolveAnswerId(
+                                data.getQuestionId(),
+                                data.getSelectedOptionIndex(),
+                                data.getSelectedAnswer(),
+                                data.getAnswerText()
+                        );
 
                 AnswerSubmitRequest request = new AnswerSubmitRequest();
                 request.setQuestionId(data.getQuestionId());
                 request.setAnswerId(answerId);
-                request.setTimeTaken(data.getTimeTaken());
 
                 // Gửi đáp án và nhận kết quả
                 QuestionResultResponse result = gameService.submitAnswer(data.getRoomId(), userId, request);
@@ -137,47 +138,27 @@ public class GameEventHandler {
                 log.info("✅ Answer result for user {}: isCorrect={}, score={}, streak={}",
                     userId, result.getIsCorrect(), result.getScore(), result.getStreak());
 
-                // Lấy câu hỏi tiếp theo cho player này
-                NextQuestionResponse nextQuestion = gameService.getNextQuestionForPlayer(data.getRoomId(), userId);
+                client.sendEvent("answer-submitted", Map.of(
+                        "result", result,
+                        "hasNextQuestion", false,
+                        "timestamp", System.currentTimeMillis()
+                ));
 
-                if (nextQuestion != null) {
-                    log.info("📤 Sending next question {} to user {}", nextQuestion.getQuestionNumber(), userId);
+                boolean allCompleted = gameService.haveAllPlayersCompleted(data.getRoomId());
+                log.info("🎯 Room {}: All players completed? {}", data.getRoomId(), allCompleted);
 
-                    // Còn câu hỏi tiếp theo - gửi cho player này
-                    client.sendEvent("answer-submitted", Map.of(
-                            "result", result,
-                            "nextQuestion", nextQuestion,
-                            "hasNextQuestion", true,
-                            "timestamp", System.currentTimeMillis()
-                    ));
-                } else {
-                    log.info("🏁 User {} completed all questions in room {}", userId, data.getRoomId());
+                if (allCompleted) {
+                    log.info("🎉 All players completed! Ending game for room {}", data.getRoomId());
 
-                    // Hết câu hỏi - player này đã hoàn thành
-                    client.sendEvent("answer-submitted", Map.of(
-                            "result", result,
-                            "hasNextQuestion", false,
-                            "completed", true,
-                            "timestamp", System.currentTimeMillis()
-                    ));
+                    // Dừng timer hiện tại để tránh kết thúc game trùng do time-up event.
+                    gameTimerService.stopGameTimer(data.getRoomId());
 
-                    // Kiểm tra xem tất cả players đã hoàn thành chưa
-                    boolean allCompleted = gameService.haveAllPlayersCompleted(data.getRoomId());
-                    log.info("🎯 Room {}: All players completed? {}", data.getRoomId(), allCompleted);
+                    // Tính toán kết quả cuối cùng
+                    GameOverResponse gameResult = gameService.endGame(data.getRoomId());
 
-                    if (allCompleted) {
-                        log.info("🎉 All players completed! Ending game for room {}", data.getRoomId());
-
-                        // Dừng timer hiện tại để tránh kết thúc game trùng do time-up event.
-                        gameTimerService.stopGameTimer(data.getRoomId());
-
-                        // Tính toán kết quả cuối cùng
-                        GameOverResponse gameResult = gameService.endGame(data.getRoomId());
-
-                        Room room = roomRepository.findById(data.getRoomId()).orElseThrow();
-                        // Broadcast kết quả đến tất cả players
-                        gameSocketFacade.notifyGameFinished(room.getRoomCode(), gameResult);
-                    }
+                    Room room = roomRepository.findById(data.getRoomId()).orElseThrow();
+                    // Broadcast kết quả đến tất cả players
+                    gameSocketFacade.notifyGameFinished(room.getRoomCode(), gameResult);
                 }
 
                 Room room = roomRepository.findById(data.getRoomId()).orElseThrow();

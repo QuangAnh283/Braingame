@@ -1,6 +1,6 @@
 package org.example.quizizz.model.dto.question;
 
-import org.example.quizizz.model.entity.Answer;
+import org.example.quizizz.model.dto.answer.AnswerResponse;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -15,5 +15,5 @@ public class QuestionWithAnswersResponse {
     private String questionText;
     private Long examId;
     private String questionType;
-    private List<Answer> answers;
+    private List<AnswerResponse> answers;
 }

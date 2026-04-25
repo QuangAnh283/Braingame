@@ -190,8 +190,7 @@ const useGameStore = create<GameStoreState>((set, get) => ({
         const {
             roomId,
             currentQuestion,
-            hasAnswered,
-            questionStartTime
+            hasAnswered
         } = get();
 
         if (hasAnswered) {
@@ -202,7 +201,6 @@ const useGameStore = create<GameStoreState>((set, get) => ({
             return;
         }
 
-        const timeTaken = Date.now() - questionStartTime;
         set({
             selectedAnswer: answerId,
             hasAnswered: true
@@ -211,8 +209,7 @@ const useGameStore = create<GameStoreState>((set, get) => ({
         socketService.submitAnswer(
             roomId,
             currentQuestion.questionId,
-            answerId,
-            timeTaken
+            answerId
         );
 
         // Stop timer after answer

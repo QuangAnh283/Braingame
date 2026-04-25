@@ -11,6 +11,7 @@ import TermsPage from "../../pages/footer/terms-page";
 import ForgotPassword from "../../pages/auth/forgot-password";
 import Login from "../../pages/auth/login";
 import Register from "../../pages/auth/register";
+import ResetPassword from "../../pages/auth/reset-password";
 import VerifyEmail from "../../pages/auth/verify-email";
 import Welcome from "../../pages/welcome";
 
@@ -19,6 +20,7 @@ const publicRoutes = [
   { path: "login", element: <Login /> },
   { path: "register", element: <Register /> },
   { path: "forgot-password", element: <ForgotPassword /> },
+  { path: "reset-password", element: <ResetPassword /> },
   { path: "verify-email", element: <VerifyEmail /> },
   { path: "about", element: <AboutPage /> },
   { path: "blog", element: <BlogPage /> },

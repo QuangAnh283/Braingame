@@ -7,10 +7,10 @@ import com.fasterxml.jackson.annotation.JsonSetter;
 public class SubmitAnswerSocketRequest {
     private Long roomId;
     private Long questionId;
+    private Long answerId;
     private Integer selectedOptionIndex;
     private String selectedAnswer;
     private String answerText;
-    private Long timeTaken;
 
     @JsonSetter("roomId")
     public void setRoomId(Object roomId) {
@@ -38,16 +38,17 @@ public class SubmitAnswerSocketRequest {
         }
     }
 
-    @JsonSetter("timeTaken")
-    public void setTimeTaken(Object timeTaken) {
-        if (timeTaken instanceof Integer) {
-            this.timeTaken = ((Integer) timeTaken).longValue();
-        } else if (timeTaken instanceof Long) {
-            this.timeTaken = (Long) timeTaken;
-        } else if (timeTaken instanceof Number) {
-            this.timeTaken = ((Number) timeTaken).longValue();
-        } else if (timeTaken instanceof String) {
-            this.timeTaken = Long.parseLong((String) timeTaken);
+    @JsonSetter("answerId")
+    public void setAnswerId(Object answerId) {
+        if (answerId instanceof Integer) {
+            this.answerId = ((Integer) answerId).longValue();
+        } else if (answerId instanceof Long) {
+            this.answerId = (Long) answerId;
+        } else if (answerId instanceof Number) {
+            this.answerId = ((Number) answerId).longValue();
+        } else if (answerId instanceof String) {
+            this.answerId = Long.parseLong((String) answerId);
         }
     }
+
 }

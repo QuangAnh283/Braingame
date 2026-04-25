@@ -46,7 +46,8 @@ public class SecurityConfig {
                 "/v3/api-docs/swagger-config",
                 "/swagger-resources/**",
                 "/webjars/**",
-                "/actuator/**",
+                "/actuator/health",
+                "/actuator/health/**",
                 "/error"
         };
 
@@ -55,12 +56,17 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                     .requestMatchers(publicPaths).permitAll()
-                        .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/auth/register", "/api/v1/auth/login",
+                                "/api/v1/auth/refresh", "/api/v1/auth/forgot-password",
+                                "/api/v1/auth/reset-password", "/api/v1/auth/reset-password/confirm").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/auth/verify-email").permitAll()
+                        .requestMatchers("/api/v1/auth/logout", "/api/v1/auth/change-password").authenticated()
                         // Socket.IO endpoints - allow all for WebSocket handshake
                         .requestMatchers("/socket.io/**").permitAll()
                         // Legacy WebSocket endpoints (if still needed)
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/ws/info/**").permitAll()
+                        .requestMatchers("/actuator/**").hasAuthority("permission:manage")
                     .requestMatchers("/api/**").authenticated()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .anyRequest().permitAll())

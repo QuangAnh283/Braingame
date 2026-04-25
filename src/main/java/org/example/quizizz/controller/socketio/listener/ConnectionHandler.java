@@ -7,6 +7,7 @@ import org.example.quizizz.controller.socketio.session.SessionManager;
 import org.example.quizizz.model.entity.Room;
 import org.example.quizizz.repository.RoomRepository;
 import org.example.quizizz.security.JwtUtil;
+import org.example.quizizz.service.Interface.IRedisService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -28,6 +29,7 @@ public class ConnectionHandler {
     private final JwtUtil jwtUtil;
     private final SessionManager sessionManager;
     private final RoomRepository roomRepository;
+    private final IRedisService redisService;
 
     public void registerListeners(SocketIOServer server) {
         server.addConnectListener(onConnect());
@@ -37,11 +39,11 @@ public class ConnectionHandler {
     // Xử lý sự kiện kết nối
     private ConnectListener onConnect() {
         return client -> {
-            String token = client.getHandshakeData().getSingleUrlParam("token");
+            String token = resolveToken(client.getHandshakeData());
             log.info("🔌 Client {} attempting to connect with token: {}",
                     client.getSessionId(), token != null ? "present" : "missing");
 
-            if (token != null && jwtUtil.validateToken(token)) {
+            if (isTokenAllowed(token)) {
                 Long userId = jwtUtil.getUserIdFromToken(token);
                 sessionManager.addUserSession(client.getSessionId().toString(), userId);
 
@@ -54,6 +56,35 @@ public class ConnectionHandler {
                 client.disconnect();
             }
         };
+    }
+
+    private boolean isTokenAllowed(String token) {
+        if (!jwtUtil.validateToken(token) || !jwtUtil.isAccessToken(token) || redisService.isTokenBlacklisted(token)) {
+            return false;
+        }
+        Long userId = jwtUtil.getUserIdFromToken(token);
+        return jwtUtil.getTokenVersion(token) == redisService.getUserTokenVersion(userId);
+    }
+
+    private String resolveToken(com.corundumstudio.socketio.HandshakeData data) {
+        String token = data.getSingleUrlParam("token");
+        if (token != null && !token.isBlank()) {
+            return token;
+        }
+        if (data.getHttpHeaders() == null) {
+            return null;
+        }
+        String cookieHeader = data.getHttpHeaders().get("Cookie");
+        if (cookieHeader == null || cookieHeader.isBlank()) {
+            return null;
+        }
+        for (String cookie : cookieHeader.split(";")) {
+            String[] parts = cookie.trim().split("=", 2);
+            if (parts.length == 2 && "accessToken".equals(parts[0])) {
+                return parts[1];
+            }
+        }
+        return null;
     }
 
     // Xử lý sự kiện ngắt kết nối

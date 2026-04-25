@@ -9,6 +9,7 @@ import org.example.quizizz.common.cache.domain.user.UserPermissionCache;
 import org.example.quizizz.common.constants.GameStatus;
 import org.example.quizizz.common.constants.PermissionCode;
 import org.example.quizizz.service.Interface.IRedisService;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
@@ -19,10 +20,13 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class RedisServiceImplement implements IRedisService {
 
+    private static final String TOKEN_VERSION_KEY_PREFIX = "auth:token-version:";
+
     private final UserPermissionCache userPermissionCache;
     private final GameSessionCache gameSessionCache;
     private final TokenBlacklistCache tokenBlacklistCache;
     private final OnlineUserCache onlineUserCache;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     /**
      * Lưu quyền cho người dùng
@@ -102,6 +106,30 @@ public class RedisServiceImplement implements IRedisService {
     @Override
     public boolean isTokenBlacklisted(String token) {
         return tokenBlacklistCache.isBlacklisted(token);
+    }
+
+    @Override
+    public long getUserTokenVersion(Long userId) {
+        if (userId == null) {
+            return 0L;
+        }
+        Object value = redisTemplate.opsForValue().get(TOKEN_VERSION_KEY_PREFIX + userId);
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String string && !string.isBlank()) {
+            return Long.parseLong(string);
+        }
+        return 0L;
+    }
+
+    @Override
+    public long incrementUserTokenVersion(Long userId) {
+        if (userId == null) {
+            return 0L;
+        }
+        Long value = redisTemplate.opsForValue().increment(TOKEN_VERSION_KEY_PREFIX + userId);
+        return value != null ? value : 0L;
     }
 
     // ============ USER ONLINE STATUS ============

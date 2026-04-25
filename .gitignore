@@ -33,8 +33,9 @@ build/
 .vscode/
 
 ### Environment Variables ###
-.env
-src/main/docker/.env
+**/.env
+**/.env.*
+!**/.env.example
 
 ### Frontend Module ###
 src/main/webapp/node/

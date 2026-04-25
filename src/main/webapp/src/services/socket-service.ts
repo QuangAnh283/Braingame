@@ -325,7 +325,7 @@ class SocketService {
         });
     }
 
-    submitAnswer(roomId: string | number, questionId: string | number, answerId: string | number, timeTaken: number) {
+    submitAnswer(roomId: string | number, questionId: string | number, answerId: string | number) {
         if (!this.socket || !this.connected) {
             return;
         }
@@ -333,8 +333,7 @@ class SocketService {
         this.emit('submit-answer', {
             roomId: roomId,
             questionId: questionId,
-            answerId: answerId,
-            timeTaken: timeTaken
+            answerId: answerId
         });
     }
 

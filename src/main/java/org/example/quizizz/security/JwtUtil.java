@@ -11,6 +11,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Component
@@ -26,11 +27,18 @@ public class JwtUtil {
 
     // Tạo access token với custom claims
     public String generateAccessToken(Long userId, String typeAccount, String rank) {
+        return generateAccessToken(userId, typeAccount, rank, 0L);
+    }
+
+    public String generateAccessToken(Long userId, String typeAccount, String rank, long tokenVersion) {
         return createToken(
                 Map.of(
                         "userId", userId,
                         "typeAccount", typeAccount,
-                        "rank", rank
+                        "rank", rank,
+                        "tokenType", "ACCESS",
+                        "tokenVersion", tokenVersion,
+                        "jti", UUID.randomUUID().toString()
                 ),
                 userId.toString(),
                 jwtConfig.getAccessExpiration()
@@ -39,8 +47,17 @@ public class JwtUtil {
 
     // Tạo refresh token chỉ với userId
     public String generateRefreshToken(Long userId) {
+        return generateRefreshToken(userId, 0L);
+    }
+
+    public String generateRefreshToken(Long userId, long tokenVersion) {
         return createToken(
-                Map.of("userId", userId),
+                Map.of(
+                        "userId", userId,
+                        "tokenType", "REFRESH",
+                        "tokenVersion", tokenVersion,
+                        "jti", UUID.randomUUID().toString()
+                ),
                 userId.toString(),
                 jwtConfig.getRefreshExpiration()
         );
@@ -104,10 +121,33 @@ public class JwtUtil {
             if (token == null || token.trim().isEmpty()) {
                 return false;
             }
-            Claims claims = getAllClaimsFromToken(token);
+            getAllClaimsFromToken(token);
             return !isTokenExpired(token);
         } catch (Exception e) {
             return false;
         }
+    }
+
+    public boolean isAccessToken(String token) {
+        return "ACCESS".equals(getClaimFromToken(token, claims -> claims.get("tokenType", String.class)));
+    }
+
+    public boolean isRefreshToken(String token) {
+        return "REFRESH".equals(getClaimFromToken(token, claims -> claims.get("tokenType", String.class)));
+    }
+
+    public long getTokenVersion(String token) {
+        Object version = getClaimFromToken(token, claims -> claims.get("tokenVersion"));
+        if (version instanceof Number number) {
+            return number.longValue();
+        }
+        if (version instanceof String string && !string.isBlank()) {
+            return Long.parseLong(string);
+        }
+        return 0L;
+    }
+
+    public long getExpirationTimeMillis(String token) {
+        return getClaimFromToken(token, Claims::getExpiration).getTime();
     }
 }

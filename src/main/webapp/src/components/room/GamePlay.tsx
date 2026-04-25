@@ -125,15 +125,6 @@ const GamePlay = ({ isHost, onLeave }) => {
                             +{answerResult?.score || 0} điểm
                         </p>
 
-                        {/* Show correct answer if wrong */}
-                        {!answerResult?.isCorrect && (
-                            <div className="correct-answer-display">
-                                <p>Đáp án đúng:</p>
-                                <p className="correct-answer-text">
-                                    {currentQuestion.answers?.find(a => a.isCorrect)?.answerText}
-                                </p>
-                            </div>
-                        )}
                     </div>
 
                     {/* Players who answered */}
