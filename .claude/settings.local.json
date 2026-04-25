@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker rm *)",
+      "Bash(docker volume *)",
+      "Bash(python -c \"import bcrypt; print\\(bcrypt.hashpw\\(b'password123', bcrypt.gensalt\\(10\\)\\).decode\\(\\)\\)\")",
+      "Bash(python -m pip install bcrypt --quiet)",
+      "PowerShell(Get-Command mvn -ErrorAction SilentlyContinue)",
+      "PowerShell(java -version 2>&1)"
+    ]
+  }
+}

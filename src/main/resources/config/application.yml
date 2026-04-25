@@ -78,6 +78,9 @@ spring:
     jpa:
       repositories:
         bootstrap-mode: deferred
+  datasource:
+    hikari:
+      auto-commit: false
   jpa:
     open-in-view: false
     properties:

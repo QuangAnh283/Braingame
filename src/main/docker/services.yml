@@ -2,7 +2,7 @@ name: quizizz-services
 
 services:
   postgres:
-    image: postgres:latest
+    image: postgres:17
     container_name: quizizz-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-quizizz}

@@ -4,10 +4,13 @@ spring:
       on-profile: dev
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/quizizz}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/quizizz?TimeZone=Asia/Ho_Chi_Minh}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 60000
+      initialization-fail-timeout: 60000
 
   data:
     redis:
@@ -24,6 +27,15 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+    defer-datasource-initialization: true
+
+  sql:
+    init:
+      mode: always
+
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
 
   docker:
     compose:
@@ -34,6 +46,9 @@ spring:
         command: down
       skip:
         in-tests: true
+      readiness:
+        wait: always
+        timeout: 5m
 
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
