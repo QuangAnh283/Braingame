@@ -166,6 +166,7 @@ minio:
   avatar-bucket: ${MINIO_AVATAR_BUCKET:quizizz-avatars}
   secure: ${MINIO_SECURE:false}
   presigned-url-expiry-days: ${MINIO_PRESIGNED_URL_EXPIRY_DAYS:7}
+  presigned-url-expiry-minutes: ${MINIO_PRESIGNED_URL_EXPIRY_MINUTES:60}
 
 socketio:
   server:
@@ -185,6 +186,10 @@ app:
   frontend:
     base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
   security:
+    trusted-proxies: ${TRUSTED_PROXIES:127.0.0.1,::1,0:0:0:0:0:0:0:1}
+    cookies:
+      secure: ${AUTH_COOKIE_SECURE:false}
+      domain: ${AUTH_COOKIE_DOMAIN:}
     cors:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8080}
   cache:

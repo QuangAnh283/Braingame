@@ -189,6 +189,11 @@ public class RoomEventHandler {
         
         server.addEventListener("get-players", GetPlayersRequest.class, (client, data, ackRequest) -> {
             try {
+                Long userId = sessionManager.getUserId(client.getSessionId());
+                if (userId == null || !roomService.isUserInRoom(data.getRoomId(), userId)) {
+                    client.sendEvent("error", Map.of("message", "Permission denied"));
+                    return;
+                }
                 List<RoomPlayerResponse> players = roomService.getRoomPlayers(data.getRoomId());
                 client.sendEvent("room-players", Map.of(
                     "roomId", data.getRoomId(),

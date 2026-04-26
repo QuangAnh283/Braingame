@@ -4,6 +4,7 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.quizizz.controller.socketio.broadcast.GameSocketFacade;
+import org.example.quizizz.service.Interface.IRedisService;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +23,7 @@ public class GameTimerService {
 
     private final GameSocketFacade gameSocketFacade;
     private final ApplicationEventPublisher eventPublisher;
+    private final IRedisService redisService;
 
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(10);
     private final Map<Long, GameTimerState> activeTimers = new ConcurrentHashMap<>();
@@ -71,7 +73,27 @@ public class GameTimerService {
 
     public Integer getRemainingTime(Long roomId) {
         GameTimerState timer = activeTimers.get(roomId);
-        return timer != null ? timer.getRemainingTime() : null;
+        if (timer != null) {
+            return timer.getRemainingTime();
+        }
+
+        Map<String, Object> sessionData = redisService.getGameSession("game:" + roomId);
+        Long expiresAt = asLong(sessionData.get("currentQuestionExpiresAt"));
+        if (expiresAt == null) {
+            return null;
+        }
+        long remainingMillis = Math.max(0L, expiresAt - System.currentTimeMillis());
+        return (int) Math.ceil(remainingMillis / 1000.0);
+    }
+
+    private Long asLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String string && !string.isBlank()) {
+            return Long.parseLong(string);
+        }
+        return null;
     }
 
     private void broadcastTimerUpdate(GameTimerState timer) {
@@ -92,9 +114,8 @@ public class GameTimerService {
         stopGameTimer(timer.getRoomId());
 
         try {
-            eventPublisher.publishEvent(new GameTimerEvent(this, timer.getRoomId()));
-
             gameSocketFacade.notifyTimeUp(timer.getRoomCode(), timer.getRoomId());
+            eventPublisher.publishEvent(new GameTimerEvent(this, timer.getRoomId()));
         } catch (Exception e) {
             log.error("Error handling timer finished for room {}: {}", timer.getRoomId(), e.getMessage());
         }

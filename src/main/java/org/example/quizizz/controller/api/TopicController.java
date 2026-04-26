@@ -1,4 +1,4 @@
-package org.example.quizizz.controller.api;
+﻿package org.example.quizizz.controller.api;
 
 import org.example.quizizz.common.config.ApiResponse;
 import org.example.quizizz.common.constants.MessageCode;
@@ -21,7 +21,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/topics")
 @RequiredArgsConstructor
-@Tag(name = "5. Topic", description = "APIs liên quan đến chủ đề")
+@Tag(name = "5. Chủ đề", description = "API liên quan đến chủ đề")
 public class TopicController {
     private final ITopicService topicService;
 
@@ -110,7 +110,7 @@ public class TopicController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, response));
     }
 
-    @Operation(summary = "Đếm số lượng topic", description = "Lấy tổng số lượng chủ đề trong hệ thống")
+    @Operation(summary = "Đếm số lượng chủ đề", description = "Lấy tổng số lượng chủ đề trong hệ thống")
     @GetMapping("/count")
     @PreAuthorize("hasAuthority('topic:manage')")
     public ResponseEntity<ApiResponse<Long>> count() {

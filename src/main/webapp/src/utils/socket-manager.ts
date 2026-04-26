@@ -1,5 +1,4 @@
 import socketService from '../services/socket-service';
-import Cookies from 'js-cookie';
 
 /**
  * Trình quản lý kết nối WebSocket cho Socket.IO
@@ -39,12 +38,7 @@ class SocketManager {
      */
     async _connect(): Promise<void> {
         try {
-            const token = this._getToken();
-            if (!token) {
-                throw new Error('Authentication token not found');
-            }
-
-            await socketService.connect(token);
+            await socketService.connect();
             this.isInitialized = true;
         } catch {
             this.connectionPromise = null;
@@ -53,28 +47,6 @@ class SocketManager {
             // Không ném lỗi - cho phép ứng dụng hoạt động ở chế độ REST API
             // Ứng dụng vẫn có thể hoạt động mà không có tính năng real-time
         }
-    }
-
-    /**
-     * Lấy token xác thực từ bộ nhớ
-     * @private
-     * @returns {string|null}
-     */
-    _getToken(): string | null {
-        // Thử cookies trước
-        let token = Cookies.get('accessToken');
-
-        // Fallback sang sessionStorage
-        if (!token) {
-            token = sessionStorage.getItem('accessToken');
-        }
-
-        // Fallback sang localStorage
-        if (!token) {
-            token = localStorage.getItem('accessToken');
-        }
-
-        return token;
     }
 
     /**

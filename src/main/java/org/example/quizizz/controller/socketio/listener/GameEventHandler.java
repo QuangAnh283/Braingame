@@ -259,6 +259,15 @@ public class GameEventHandler {
                 }
 
                 Long roomId = data.getRoomId();
+                if (!roomService.isUserInRoom(roomId, userId)) {
+                    if (ackRequest.isAckRequested()) {
+                        ackRequest.sendAckData(Map.of(
+                                "success", false,
+                                "message", "Permission denied"
+                        ));
+                    }
+                    return;
+                }
 
                 // Lấy câu hỏi hiện tại
                 NextQuestionResponse currentQuestion = gameService.getCurrentQuestion(roomId);

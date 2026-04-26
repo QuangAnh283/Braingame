@@ -1,4 +1,4 @@
-package org.example.quizizz.controller.api;
+﻿package org.example.quizizz.controller.api;
 
 import org.example.quizizz.common.config.ApiResponse;
 import org.example.quizizz.common.constants.MessageCode;
@@ -24,7 +24,7 @@ import java.time.Duration;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
-@Tag(name = "1. Authentication", description = "APIs liên quan đến đăng nhập, đăng ký")
+@Tag(name = "1. Xác thực", description = "API liên quan đến đăng nhập, đăng ký")
 public class AuthController {
 
     private final IAuthService authService;
@@ -71,7 +71,7 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.AUTH_LOGOUT_SUCCESS, "Logout successful"));
     }
 
-    @Operation(summary = "Làm mới token", description = "Lấy access token mới từ refresh token")
+    @Operation(summary = "Làm mới token", description = "Lấy token truy cập mới từ token làm mới")
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<LoginResponse>> refreshToken(@RequestBody(required = false) String refreshToken,
                                                                    HttpServletRequest servletRequest,
@@ -87,7 +87,7 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.AUTH_TOKEN_REFRESHED, response));
     }
 
-    @Operation(summary = "Reset mật khẩu", description = "Reset mật khẩu người dùng qua email và tự động đăng xuất tất cả thiết bị")
+    @Operation(summary = "Đặt lại mật khẩu", description = "Đặt lại mật khẩu người dùng qua email và tự động đăng xuất tất cả thiết bị")
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<ResetPasswordResponse>> resetPassword(@Valid @RequestBody ResetPasswordRequest request,
                                                                             HttpServletRequest servletRequest) {
@@ -96,7 +96,7 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.AUTH_PASSWORD_RESET_SUCCESS, response));
     }
 
-    @Operation(summary = "Xác nhận reset mật khẩu", description = "Đặt mật khẩu mới bằng token một lần")
+    @Operation(summary = "Xác nhận đặt lại mật khẩu", description = "Đặt mật khẩu mới bằng token một lần")
     @PostMapping("/reset-password/confirm")
     public ResponseEntity<ApiResponse<ResetPasswordResponse>> confirmResetPassword(
             @Valid @RequestBody ConfirmResetPasswordRequest request,
@@ -126,7 +126,7 @@ public class AuthController {
         return ResponseEntity.badRequest().build();
     }
 
-    @Operation(summary = "Quên mật khẩu", description = "Gửi link đặt lại mật khẩu qua email")
+    @Operation(summary = "Quên mật khẩu", description = "Gửi liên kết đặt lại mật khẩu qua email")
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<ResetPasswordResponse>> forgotPassword(@Valid @RequestBody ResetPasswordRequest request,
                                                                              HttpServletRequest servletRequest) {

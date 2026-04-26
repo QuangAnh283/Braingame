@@ -1,4 +1,4 @@
-package org.example.quizizz.controller.api;
+﻿package org.example.quizizz.controller.api;
 
 import org.example.quizizz.common.config.ApiResponse;
 import org.example.quizizz.common.constants.MessageCode;
@@ -22,13 +22,13 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/questions")
 @RequiredArgsConstructor
-@Tag(name = "6. Question", description = "APIs liên quan đến câu hỏi")
+@Tag(name = "6. Câu hỏi", description = "API liên quan đến câu hỏi")
 public class QuestionController {
 
     private final IQuestionService questionService;
     private final ResourceOwnershipService resourceOwnershipService;
 
-    @Operation(summary = "Lấy câu hỏi ngẫu nhiên với đáp án", description = "Lấy câu hỏi ngẫu nhiên kèm đáp án theo topic và loại câu hỏi")
+    @Operation(summary = "Lấy câu hỏi ngẫu nhiên với đáp án", description = "Lấy câu hỏi ngẫu nhiên kèm đáp án theo chủ đề và loại câu hỏi")
     @GetMapping("/random")
     @PreAuthorize("hasAuthority('question:manage')")
     public ResponseEntity<ApiResponse<List<QuestionWithAnswersResponse>>> getRandomQuestions(
@@ -59,7 +59,7 @@ public class QuestionController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, questions));
     }
 
-    @Operation(summary = "Đếm số câu hỏi có sẵn", description = "Đếm số câu hỏi có sẵn theo topic và loại câu hỏi")
+    @Operation(summary = "Đếm số câu hỏi có sẵn", description = "Đếm số câu hỏi có sẵn theo chủ đề và loại câu hỏi")
     @GetMapping("/count")
     public ResponseEntity<ApiResponse<Long>> countAvailableQuestions(
             @RequestParam(required = false) Long examId,
@@ -132,7 +132,7 @@ public class QuestionController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, response));
     }
 
-    @Operation(summary = "Lấy danh sách câu hỏi", description = "Lấy danh sách câu hỏi với phân trang, tìm kiếm và lọc theo topic, loại câu hỏi (teacher chỉ xem của mình)")
+    @Operation(summary = "Lấy danh sách câu hỏi", description = "Lấy danh sách câu hỏi với phân trang, tìm kiếm và lọc theo chủ đề, loại câu hỏi (giáo viên chỉ xem của mình)")
     @GetMapping
     @PreAuthorize("hasAuthority('question:manage')")
     public ResponseEntity<ApiResponse<PageResponse<QuestionWithAnswersResponse>>> getAll(

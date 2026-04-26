@@ -5,10 +5,12 @@ import org.example.quizizz.common.constants.RoomMode;
 import org.example.quizizz.common.constants.RoomStatus;
 import org.example.quizizz.common.exception.ApiException;
 import org.example.quizizz.common.event.RoomEvent;
+import org.example.quizizz.common.security.ResourceOwnershipService;
 import org.example.quizizz.controller.socketio.broadcast.RoomSocketFacade;
 import org.example.quizizz.mapper.RoomMapper;
 import org.example.quizizz.mapper.RoomPlayerMapper;
 import org.example.quizizz.model.dto.room.*;
+import org.example.quizizz.model.entity.Exam;
 import org.example.quizizz.model.entity.Room;
 import org.example.quizizz.model.entity.RoomPlayers;
 import org.example.quizizz.model.entity.User;
@@ -21,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,11 +45,13 @@ public class RoomServiceImplement implements IRoomService {
     private final UserRepository userRepository;
     private final TopicRepository topicRepository;
     private final ExamRepository examRepository;
+    private final QuestionRepository questionRepository;
     private final RoomSocketFacade roomSocketFacade;
     private final RoomMapper roomMapper;
     private final RoomPlayerMapper roomPlayerMapper;
     private final RoomCodeGenerator roomCodeGenerator;
     private final ApplicationEventPublisher eventPublisher;
+    private final ResourceOwnershipService resourceOwnershipService;
 
     /**
      * Tạo phòng
@@ -56,15 +61,31 @@ public class RoomServiceImplement implements IRoomService {
      */
     @Override
     public RoomResponse createRoom(CreateRoomRequest request, Long userId) {
-        validateRoomModeAndMaxPlayers(request.getRoomMode(), request.getMaxPlayers());
+        User owner = requireRoomManager(userId);
+        Exam exam = validateRoomConfiguration(
+                request.getExamId(),
+                request.getTopicId(),
+                request.getRoomMode(),
+                request.getMaxPlayers(),
+                request.getQuestionCount(),
+                request.getCountdownTime()
+        );
+        resourceOwnershipService.assertCanManageExam(exam.getId(), userId, owner.getTypeAccount());
 
         Room room = roomMapper.toEntity(request);
         room.setOwnerId(userId);
         room.setStatus(RoomStatus.WAITING.name());
         room.setRoomCode(generateUniqueRoomCode());
+        room.setIsPrivate(Boolean.TRUE.equals(request.getIsPrivate()));
 
         if (request.getMaxPlayers() == null) {
             room.setMaxPlayers(request.getRoomMode() == RoomMode.ONE_VS_ONE ? 2 : 10);
+        }
+        if (request.getQuestionCount() == null) {
+            room.setQuestionCount(10);
+        }
+        if (request.getCountdownTime() == null) {
+            room.setCountdownTime(30);
         }
 
         Room savedRoom = roomRepository.save(room);
@@ -295,7 +316,36 @@ public class RoomServiceImplement implements IRoomService {
 
     @Override
     public RoomResponse updateRoom(Long roomId, UpdateRoomRequest request, Long userId) {
-        return null;
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new ApiException(MessageCode.ROOM_NOT_FOUND));
+
+        if (!room.getOwnerId().equals(userId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN.value(), MessageCode.ROOM_PERMISSION_DENIED, "Only the room host can update this room");
+        }
+        if (!RoomStatus.WAITING.name().equals(room.getStatus()) && !RoomStatus.FULL.name().equals(room.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT.value(), MessageCode.OPERATION_NOT_ALLOWED, "Only waiting rooms can be updated");
+        }
+
+        RoomMode nextMode = request.getRoomMode() != null ? request.getRoomMode() : RoomMode.valueOf(room.getRoomMode());
+        Integer nextMaxPlayers = request.getMaxPlayers() != null
+                ? request.getMaxPlayers()
+                : (request.getRoomMode() != null ? (nextMode == RoomMode.ONE_VS_ONE ? 2 : 10) : room.getMaxPlayers());
+        Integer nextQuestionCount = request.getQuestionCount() != null ? request.getQuestionCount() : room.getQuestionCount();
+        Integer nextCountdownTime = request.getCountdownTime() != null ? request.getCountdownTime() : room.getCountdownTime();
+
+        validateRoomConfiguration(room.getExamId(), room.getTopicId(), nextMode, nextMaxPlayers, nextQuestionCount, nextCountdownTime);
+
+        roomMapper.updateEntityFromRequest(room, request);
+        room.setRoomMode(nextMode.name());
+        room.setMaxPlayers(nextMaxPlayers);
+        room.setQuestionCount(nextQuestionCount);
+        room.setCountdownTime(nextCountdownTime);
+        Room savedRoom = roomRepository.save(room);
+        updateRoomStatus(savedRoom);
+
+        RoomResponse response = mapToRoomResponse(savedRoom);
+        eventPublisher.publishEvent(new RoomEvent(this, RoomEvent.Type.ROOM_UPDATED, response));
+        return response;
     }
 
     @Override
@@ -304,9 +354,11 @@ public class RoomServiceImplement implements IRoomService {
         Room room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new ApiException(MessageCode.ROOM_NOT_FOUND));
 
-        // Kiểm tra quyền xóa phòng (chỉ owner mới được xóa)
         if (!room.getOwnerId().equals(userId)) {
-            throw new ApiException(MessageCode.UNAUTHORIZED);
+            throw new ApiException(HttpStatus.FORBIDDEN.value(), MessageCode.ROOM_PERMISSION_DENIED, "Only the room host can delete this room");
+        }
+        if (RoomStatus.PLAYING.name().equals(room.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT.value(), MessageCode.OPERATION_NOT_ALLOWED, "Cannot delete a room while the game is running");
         }
 
         // Xóa tất cả players trong phòng trước (3NF - manual delete)
@@ -410,6 +462,53 @@ public class RoomServiceImplement implements IRoomService {
         if (roomMode == RoomMode.BATTLE_ROYAL && maxPlayers != null && (maxPlayers < 3 || maxPlayers > 50)) {
             throw new ApiException(MessageCode.ROOM_INVALID_MAX_PLAYERS);
         }
+    }
+
+    private User requireRoomManager(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(MessageCode.USER_NOT_FOUND));
+        if (!"HOST".equalsIgnoreCase(user.getTypeAccount()) && !"ADMIN".equalsIgnoreCase(user.getTypeAccount())) {
+            throw new ApiException(HttpStatus.FORBIDDEN.value(), MessageCode.ROOM_PERMISSION_DENIED, "Only hosts can create rooms");
+        }
+        return user;
+    }
+
+    private Exam validateRoomConfiguration(Long examId,
+                                           Long topicId,
+                                           RoomMode roomMode,
+                                           Integer maxPlayers,
+                                           Integer questionCount,
+                                           Integer countdownTime) {
+        Exam exam = examRepository.findById(examId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND.value(), MessageCode.NOT_FOUND, "Exam not found"));
+        topicRepository.findById(topicId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND.value(), MessageCode.NOT_FOUND, "Topic not found"));
+
+        if (!exam.getTopicId().equals(topicId)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Exam does not belong to the selected topic");
+        }
+
+        validateRoomModeAndMaxPlayers(roomMode, maxPlayers);
+
+        int resolvedQuestionCount = questionCount == null ? 10 : questionCount;
+        if (resolvedQuestionCount < 1 || resolvedQuestionCount > 100) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Question count must be between 1 and 100");
+        }
+
+        long availableQuestions = questionRepository.countByExamId(examId);
+        if (availableQuestions <= 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Exam has no questions");
+        }
+        if (resolvedQuestionCount > availableQuestions) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Question count exceeds available questions in the exam");
+        }
+
+        int resolvedCountdownTime = countdownTime == null ? 30 : countdownTime;
+        if (resolvedCountdownTime < 5 || resolvedCountdownTime > 300) {
+            throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Countdown time must be between 5 and 300 seconds");
+        }
+
+        return exam;
     }
 
     @Override

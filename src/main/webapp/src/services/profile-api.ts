@@ -1,34 +1,5 @@
 import apiInstance from './api-instance';
-import Cookies from 'js-cookie';
 import authStore from '../stores/auth-store';
-import { jwtDecode } from 'jwt-decode';
-
-let cachedToken = null;
-
-const getToken = () => {
-    if (cachedToken) return cachedToken;
-
-    const tokenSources = [
-        Cookies.get('accessToken'),
-        sessionStorage.getItem('accessToken'),
-    ];
-    const token = tokenSources.find((t) => t && /^eyJ/.test(t));
-    if (!token) {
-        throw new Error('Không tìm thấy token đăng nhập hợp lệ');
-    }
-    try {
-        const decoded = jwtDecode(token);
-        if (decoded.exp * 1000 < Date.now()) {
-            throw new Error('Token đã hết hạn');
-        }
-        cachedToken = token;
-        setTimeout(() => (cachedToken = null), 1000); // Reset cache sau 1s
-        return token;
-    } catch {
-        cachedToken = null;
-        throw new Error('Token không hợp lệ');
-    }
-};
 
 const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const validatePhone = (phone) => /^\+?\d{10,15}$/.test(phone);
@@ -37,10 +8,8 @@ const validateFullName = (fullName) => fullName?.trim().length >= 2;
 const profileApi = {
     getMyProfile: async () => {
         try {
-            const token = getToken();
             const response = await apiInstance.get('/profile', {
                 headers: {
-                    Authorization: `Bearer ${token}`,
                     'Cache-Control': 'max-age=300',
                 },
             });
@@ -81,12 +50,7 @@ const profileApi = {
             };
         }
         try {
-            const token = getToken();
-            const response = await apiInstance.get(`/profile/search/${encodeURIComponent(username)}?limit=${limit}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            const response = await apiInstance.get(`/profile/search/${encodeURIComponent(username)}?limit=${limit}`);
             return {
                 status: response.status,
                 message: response.data.message || 'Success',
@@ -118,12 +82,7 @@ const profileApi = {
             };
         }
         try {
-            const token = getToken();
-            const response = await apiInstance.get(`/profile/${userId}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            const response = await apiInstance.get(`/profile/${userId}`);
             return {
                 status: response.status,
                 message: response.data.message || 'Success',
@@ -156,7 +115,6 @@ const profileApi = {
             if (phoneNumber && !validatePhone(phoneNumber)) {
                 throw new Error('Số điện thoại không hợp lệ');
             }
-            const token = getToken();
             const requestData = {
                 fullName: fullName?.trim(),
                 email: email?.trim(),
@@ -168,7 +126,6 @@ const profileApi = {
             // Sửa endpoint từ /profile/update thành /profile theo API spec
             const response = await apiInstance.put('/profile', requestData, {
                 headers: {
-                    Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json',
                 },
             });
@@ -212,11 +169,9 @@ const profileApi = {
             if (!currentPassword || !newPassword) {
                 throw new Error('Vui lòng cung cấp đầy đủ mật khẩu');
             }
-            const token = getToken();
             const requestData = { currentPassword, newPassword };
             const response = await apiInstance.put('/profile/password', requestData, {
                 headers: {
-                    Authorization: `Bearer ${token}`,
                     'Content-Type': 'application/json',
                 },
             });
@@ -242,17 +197,11 @@ const profileApi = {
 
     getAvatar: async () => {
         try {
-            const token = getToken();
-            const response = await apiInstance.get('/profile/avatar', {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-                responseType: 'blob', // Lấy avatar dưới dạng blob
-            });
+            const response = await apiInstance.get('/profile/avatar');
             return {
                 status: response.status,
                 message: 'Avatar loaded successfully',
-                data: response.data, // Blob data của avatar
+                data: response.data?.data || response.data,
                 isSuccess: response.status === 200,
                 timestamp: new Date().toISOString(),
             };

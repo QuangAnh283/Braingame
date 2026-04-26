@@ -16,9 +16,11 @@ import org.example.quizizz.service.Interface.IRedisService;
 import org.example.quizizz.service.helper.GameAsyncPostProcessor;
 import org.example.quizizz.service.helper.GameScoreCalculator;
 import org.example.quizizz.service.helper.GameTimerEvent;
+import org.example.quizizz.service.helper.GameTimerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -47,6 +50,8 @@ public class GameServiceImplement implements IGameService {
     private final GameAsyncPostProcessor gameAsyncPostProcessor;
     private final UserRepository userRepository;
     private final GameSocketFacade gameSocketFacade;
+    private final GameTimerService gameTimerService;
+    private final Map<Long, Object> roomLocks = new ConcurrentHashMap<>();
 
     @Override
     @Transactional
@@ -276,7 +281,11 @@ public class GameServiceImplement implements IGameService {
         userAnswer.setIsCorrect(isCorrect);
         userAnswer.setScore(finalScore);
         userAnswer.setTimeTaken((int) Math.min(serverTimeTaken, Integer.MAX_VALUE));
-        userAnswerRepository.save(userAnswer);
+        try {
+            userAnswerRepository.saveAndFlush(userAnswer);
+        } catch (DataIntegrityViolationException e) {
+            throw new ApiException(HttpStatus.CONFLICT.value(), MessageCode.BAD_REQUEST, "Question already answered");
+        }
 
         QuestionResultResponse response = new QuestionResultResponse();
         response.setIsCorrect(isCorrect);
@@ -336,6 +345,12 @@ public class GameServiceImplement implements IGameService {
     @Override
     @Transactional
     public GameOverResponse endGame(Long roomId) {
+        synchronized (roomLock(roomId)) {
+            return endGameLocked(roomId);
+        }
+    }
+
+    private GameOverResponse endGameLocked(Long roomId) {
         String gameId = "game:" + roomId;
         Map<String, Object> sessionData = redisService.getGameSession(gameId);
 
@@ -492,19 +507,36 @@ public class GameServiceImplement implements IGameService {
             Long roomId = event.getRoomId();
             log.info("Timer finished for room {}", roomId);
 
-            // Check if all players have completed the game
-            boolean allCompleted = haveAllPlayersCompleted(roomId);
+            synchronized (roomLock(roomId)) {
+                String gameId = "game:" + roomId;
+                Map<String, Object> sessionData = redisService.getGameSession(gameId);
+                if (sessionData == null || !GameStatus.IN_PROGRESS.name().equals(sessionData.get("status"))) {
+                    return;
+                }
 
-            if (allCompleted) {
-                log.info("All players completed! Ending game for room {}", roomId);
-                GameOverResponse gameResult = endGame(roomId);
-
+                int currentIndex = ((Number) sessionData.get("currentQuestionIndex")).intValue();
+                int totalQuestions = ((Number) sessionData.get("totalQuestions")).intValue();
                 Room room = roomRepository.findById(roomId).orElseThrow();
+
+                if (currentIndex < totalQuestions) {
+                    NextQuestionResponse nextQuestion = getNextQuestion(roomId);
+                    if (nextQuestion != null) {
+                        gameSocketFacade.notifyNextQuestion(room.getRoomCode(), nextQuestion);
+                        gameTimerService.startGameTimer(roomId, room.getRoomCode(), nextQuestion.getTimeLimit());
+                    }
+                    return;
+                }
+
+                GameOverResponse gameResult = endGameLocked(roomId);
                 gameSocketFacade.notifyGameFinished(room.getRoomCode(), gameResult);
             }
         } catch (Exception e) {
             log.error("Error handling timer event: {}", e.getMessage(), e);
         }
+    }
+
+    private Object roomLock(Long roomId) {
+        return roomLocks.computeIfAbsent(roomId, ignored -> new Object());
     }
 
     @Override

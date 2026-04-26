@@ -1,4 +1,4 @@
-package org.example.quizizz.controller.api;
+﻿package org.example.quizizz.controller.api;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,7 +29,7 @@ import java.time.Duration;
 @RestController
 @RequestMapping("/api/v1/ai")
 @RequiredArgsConstructor
-@Tag(name = "8. AI Assistant", description = "APIs tạo câu hỏi tự động bằng AI")
+@Tag(name = "8. Trợ lý AI", description = "API tạo câu hỏi tự động bằng AI")
 public class AIController {
     
     private final IAIService aiServiceImpl;

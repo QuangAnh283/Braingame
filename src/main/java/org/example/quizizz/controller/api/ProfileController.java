@@ -1,4 +1,4 @@
-package org.example.quizizz.controller.api;
+﻿package org.example.quizizz.controller.api;
 
 import org.example.quizizz.common.config.ApiResponse;
 import org.example.quizizz.common.constants.MessageCode;
@@ -26,7 +26,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/profile")
 @RequiredArgsConstructor
-@Tag(name = "Profile", description = "APIs liên quan đến hồ sơ người dùng")
+@Tag(name = "Hồ sơ người dùng", description = "API quản lý hồ sơ người dùng")
 public class ProfileController {
 
     private final IProfileService profileService;
@@ -51,7 +51,7 @@ public class ProfileController {
 
     @PutMapping("/{userId}")
     @PreAuthorize("hasAuthority('user:manage_profile')")
-    @Operation(summary = "Cập nhật hồ sơ người dùng theo ID", description = "Cập nhật thông tin hồ sơ của người dùng (chỉ được edit profile của chính mình)")
+    @Operation(summary = "Cập nhật hồ sơ người dùng theo ID", description = "Cập nhật thông tin hồ sơ của người dùng (chỉ được chỉnh sửa hồ sơ của chính mình)")
     public ResponseEntity<ApiResponse<UpdateProfileResponse>> updateProfileById(
             @PathVariable Long userId,
             @RequestBody UpdateProfileRequest request, 
@@ -137,7 +137,7 @@ public class ProfileController {
     }
     
     @GetMapping("/search")
-    @Operation(summary = "Tìm kiếm người dùng", description = "Tìm kiếm người dùng theo username hoặc tên")
+    @Operation(summary = "Tìm kiếm người dùng", description = "Tìm kiếm người dùng theo tên đăng nhập hoặc tên hiển thị")
     public ResponseEntity<ApiResponse<java.util.List<org.example.quizizz.model.dto.profile.UserSearchResponse>>> searchUsers(
             @RequestParam String keyword) {
         java.util.List<org.example.quizizz.model.dto.profile.UserSearchResponse> users = profileService.searchUsers(keyword);
@@ -158,7 +158,7 @@ public class ProfileController {
 
     @GetMapping("/stats")
     @PreAuthorize("hasAuthority('user:manage_profile')")
-    @Operation(summary = "Lấy thống kê profile", description = "Lấy thống kê chi tiết của người dùng hiện tại để hiển thị trên Dashboard và ProfileStats")
+    @Operation(summary = "Lấy thống kê hồ sơ", description = "Lấy thống kê chi tiết của người dùng hiện tại để hiển thị trên bảng điều khiển và hồ sơ")
     public ResponseEntity<ApiResponse<org.example.quizizz.model.dto.profile.ProfileStatsResponse>> getProfileStats(Authentication auth) {
         try {
             Long userId = Long.valueOf(auth.getName());

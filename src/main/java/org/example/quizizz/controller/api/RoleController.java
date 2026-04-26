@@ -1,4 +1,4 @@
-package org.example.quizizz.controller.api;
+﻿package org.example.quizizz.controller.api;
 
 import org.example.quizizz.common.config.ApiResponse;
 import org.example.quizizz.common.constants.MessageCode;
@@ -22,12 +22,12 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/roles")
 @RequiredArgsConstructor
-@Tag(name = "2. Role", description = "APIs liên quan đến vai trò")
+@Tag(name = "2. Vai trò", description = "API liên quan đến vai trò")
 public class RoleController {
 
     private final IRoleService roleService;
 
-    @Operation(summary = "Tạo mới role", description = "Tạo mới một vai trò (role) trong hệ thống")
+    @Operation(summary = "Tạo mới vai trò", description = "Tạo mới một vai trò trong hệ thống")
     @PostMapping
     @PreAuthorize("hasAuthority('role:manage')")
     public ResponseEntity<ApiResponse<RoleResponse>> create(@Valid @RequestBody CreateRoleRequest request) {
@@ -35,7 +35,7 @@ public class RoleController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.ROLE_ASSIGNED, response));
     }
 
-    @Operation(summary = "Cập nhật role", description = "Cập nhật thông tin một vai trò theo ID")
+    @Operation(summary = "Cập nhật vai trò", description = "Cập nhật thông tin một vai trò theo ID")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('role:manage')")
     public ResponseEntity<ApiResponse<RoleResponse>> update(@PathVariable Long id, @RequestBody UpdateRoleRequest request) {
@@ -43,7 +43,7 @@ public class RoleController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.ROLE_ASSIGNED, response));
     }
 
-    @Operation(summary = "Xóa role", description = "Xóa một vai trò theo ID")
+    @Operation(summary = "Xóa vai trò", description = "Xóa một vai trò theo ID")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('role:manage')")
     public ResponseEntity<ApiResponse<String>> delete(@PathVariable Long id) {
@@ -51,7 +51,7 @@ public class RoleController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.ROLE_REMOVED, "Role deleted successfully"));
     }
 
-    @Operation(summary = "Lấy role theo ID", description = "Lấy chi tiết một vai trò theo ID")
+    @Operation(summary = "Lấy vai trò theo ID", description = "Lấy chi tiết một vai trò theo ID")
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('role:manage')")
     public ResponseEntity<ApiResponse<RoleResponse>> getById(@PathVariable Long id) {
@@ -59,7 +59,7 @@ public class RoleController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, response));
     }
 
-    @Operation(summary = "Lấy tất cả role", description = "Lấy danh sách tất cả vai trò trong hệ thống")
+    @Operation(summary = "Lấy tất cả vai trò", description = "Lấy danh sách tất cả vai trò trong hệ thống")
     @GetMapping
     @PreAuthorize("hasAuthority('role:manage')")
     public ResponseEntity<ApiResponse<List<RoleResponse>>> getAll() {
@@ -67,14 +67,14 @@ public class RoleController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, response));
     }
 
-    @Operation(summary = "Đếm số lượng role", description = "Lấy tổng số lượng vai trò trong hệ thống")
+    @Operation(summary = "Đếm số lượng vai trò", description = "Lấy tổng số lượng vai trò trong hệ thống")
     @GetMapping("/count")
     public ResponseEntity<ApiResponse<Long>> count() {
         Long count = roleService.count();
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, count));
     }
 
-    @Operation(summary = "Tìm kiếm role", description = "Tìm kiếm và phân trang vai trò")
+    @Operation(summary = "Tìm kiếm vai trò", description = "Tìm kiếm và phân trang vai trò")
     @GetMapping("/search")
     public ResponseEntity<ApiResponse<PageResponse<RoleResponse>>> search(
             @RequestParam(required = false) String keyword,
@@ -86,7 +86,7 @@ public class RoleController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, response));
     }
 
-    @Operation(summary = "Lấy quyền của role", description = "Lấy danh sách quyền được gán cho một role")
+    @Operation(summary = "Lấy quyền của vai trò", description = "Lấy danh sách quyền được gán cho một vai trò")
     @GetMapping("/{roleId}/permissions")
     @PreAuthorize("hasAuthority('role:manage')")
     public ResponseEntity<ApiResponse<List<org.example.quizizz.model.dto.permission.PermissionResponse>>> getRolePermissions(@PathVariable Long roleId) {
@@ -94,7 +94,7 @@ public class RoleController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, permissions));
     }
 
-    @Operation(summary = "Cập nhật quyền của role", description = "Cập nhật danh sách quyền cho một role")
+    @Operation(summary = "Cập nhật quyền của vai trò", description = "Cập nhật danh sách quyền cho một vai trò")
     @PutMapping("/{roleId}/permissions")
     @PreAuthorize("hasAuthority('role:manage')")
     public ResponseEntity<ApiResponse<String>> updateRolePermissions(

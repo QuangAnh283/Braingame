@@ -1,8 +1,7 @@
 import io from 'socket.io-client';
-import Cookies from 'js-cookie';
 
-type SocketCallback = (data: any) => void;
-type RoomListCallback = ((payload: { type: string; data: any }) => void) | null;
+type SocketCallback = (_data: any) => void;
+type RoomListCallback = ((_payload: { type: string; data: any }) => void) | null;
 
 class SocketService {
     socket: any;
@@ -45,18 +44,12 @@ class SocketService {
                 this.disconnect();
             }
 
-            const authToken = token || Cookies.get('accessToken');
-            if (!authToken) {
-                return reject(new Error('No authentication token found'));
-            }
-
             const socketUrl = window.location.hostname === 'localhost'
                 ? 'http://localhost:9093'
                 : 'https://socket.dungmetri.io.vn';
-            
-            this.socket = io(socketUrl, {
+
+            const connectionOptions: any = {
                 transports: ['polling', 'websocket'],
-                query: { token: authToken },
                 reconnection: true,
                 reconnectionAttempts: this.maxReconnectAttempts,
                 reconnectionDelay: 1000,
@@ -64,9 +57,14 @@ class SocketService {
                 timeout: 20000,
                 upgrade: true,
                 rememberUpgrade: true,
-                withCredentials: false, 
-                forceNew: false 
-            });
+                withCredentials: true,
+                forceNew: false
+            };
+            if (token) {
+                connectionOptions.query = { token };
+            }
+
+            this.socket = io(socketUrl, connectionOptions);
 
             this.socket.on('connect', () => {
                 this.connected = true;

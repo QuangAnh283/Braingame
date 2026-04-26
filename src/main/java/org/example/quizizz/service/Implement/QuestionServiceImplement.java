@@ -14,13 +14,16 @@ import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
@@ -49,14 +52,10 @@ public class QuestionServiceImplement implements IQuestionService {
 
     @Override
     public List<QuestionWithAnswersResponse> getRandomQuestionsForPlayer(Long examId, String questionType, int count, Long playerId) {
-        List<Question> allQuestions = getAllQuestions(examId, questionType);
         int sanitizedCount = sanitizeCount(count);
-        
-        // Shuffle based on playerId for consistent randomization per player
-        Random random = new Random(playerId.hashCode());
-        Collections.shuffle(allQuestions, random);
-        
-        List<Question> playerQuestions = allQuestions.stream().limit(sanitizedCount).toList();
+        Random random = new Random(playerId != null ? playerId.hashCode() : 0);
+        List<Question> playerQuestions = getRandomQuestions(examId, questionType, sanitizedCount, random);
+        Collections.shuffle(playerQuestions, random);
         return playerQuestions.stream().map(this::mapToQuestionWithAnswers).toList();
     }
 
@@ -66,30 +65,40 @@ public class QuestionServiceImplement implements IQuestionService {
             return questionRepository.countByExamIdAndQuestionType(examId, questionType);
         } else if (examId != null) {
             return questionRepository.countByExamId(examId);
+        } else if (questionType != null) {
+            return questionRepository.countByQuestionType(questionType);
         }
         return questionRepository.count();
     }
 
     private List<Question> getRandomQuestions(Long examId, String questionType, int count) {
-        if (examId != null && questionType != null) {
-            return questionRepository.findRandomQuestionsByExamAndType(examId, questionType, count);
-        } else if (examId != null) {
-            return questionRepository.findRandomQuestionsByExam(examId, count);
-        } else if (questionType != null) {
-            return questionRepository.findRandomQuestionsByType(questionType, count);
-        }
-        return questionRepository.findRandomQuestions(count);
+        return getRandomQuestions(examId, questionType, count, null);
     }
 
-    private List<Question> getAllQuestions(Long examId, String questionType) {
-        if (examId != null && questionType != null) {
-            return questionRepository.findByExamIdAndQuestionType(examId, questionType);
-        } else if (examId != null) {
-            return questionRepository.findByExamId(examId);
-        } else if (questionType != null) {
-            return questionRepository.findByQuestionType(questionType);
+    private List<Question> getRandomQuestions(Long examId, String questionType, int count, Random seededRandom) {
+        long total = countAvailableQuestions(examId, questionType);
+        if (total <= 0) {
+            return List.of();
         }
-        return questionRepository.findAll();
+
+        int limit = (int) Math.min(count, total);
+        int maxPage = (int) Math.max(0, Math.ceil((double) total / limit) - 1);
+        int page = maxPage == 0
+                ? 0
+                : (seededRandom != null ? seededRandom.nextInt(maxPage + 1) : ThreadLocalRandom.current().nextInt(maxPage + 1));
+        Pageable pageable = PageRequest.of(page, limit, Sort.by(Sort.Direction.ASC, "id"));
+        return findQuestionPage(examId, questionType, pageable).getContent();
+    }
+
+    private Page<Question> findQuestionPage(Long examId, String questionType, Pageable pageable) {
+        if (examId != null && questionType != null) {
+            return questionRepository.findByExamIdAndQuestionType(examId, questionType, pageable);
+        } else if (examId != null) {
+            return questionRepository.findByExamId(examId, pageable);
+        } else if (questionType != null) {
+            return questionRepository.findByQuestionType(questionType, pageable);
+        }
+        return questionRepository.findAll(pageable);
     }
 
     private QuestionWithAnswersResponse mapToQuestionWithAnswers(Question question) {

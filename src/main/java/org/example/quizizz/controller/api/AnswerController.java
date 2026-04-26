@@ -1,4 +1,4 @@
-package org.example.quizizz.controller.api;
+﻿package org.example.quizizz.controller.api;
 
 import org.example.quizizz.common.config.ApiResponse;
 import org.example.quizizz.common.constants.MessageCode;
@@ -22,7 +22,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/answers")
 @RequiredArgsConstructor
-@Tag(name = "7. Answer", description = "APIs liên quan đến đáp án")
+@Tag(name = "7. Đáp án", description = "API liên quan đến đáp án")
 public class AnswerController {
 
     private final IAnswerService answerService;

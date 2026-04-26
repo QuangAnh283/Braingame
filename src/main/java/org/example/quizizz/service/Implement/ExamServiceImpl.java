@@ -16,11 +16,15 @@ import org.example.quizizz.repository.TopicRepository;
 import org.example.quizizz.repository.AnswerRepository;
 import org.example.quizizz.service.Interface.IExamService;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -84,12 +88,7 @@ public class ExamServiceImpl implements IExamService {
 
     @Override
     public List<ExamResponse> getAll() {
-        return examRepository.findAll().stream()
-            .map(exam -> {
-                Topic topic = topicRepository.findById(exam.getTopicId()).orElse(null);
-                return toResponse(exam, topic != null ? topic.getName() : null);
-            })
-            .collect(Collectors.toList());
+        return toResponses(examRepository.findAll());
     }
 
     @Override
@@ -97,9 +96,7 @@ public class ExamServiceImpl implements IExamService {
         Topic topic = topicRepository.findById(topicId)
             .orElseThrow(() -> new ApiException(404, MessageCode.NOT_FOUND, "Topic not found"));
 
-        return examRepository.findByTopicId(topicId).stream()
-            .map(exam -> toResponse(exam, topic.getName()))
-            .collect(Collectors.toList());
+        return toResponses(examRepository.findByTopicId(topicId), Map.of(topicId, topic.getName()));
     }
 
     @Override
@@ -116,10 +113,7 @@ public class ExamServiceImpl implements IExamService {
             exams = examRepository.findAll(pageable);
         }
 
-        return exams.map(exam -> {
-            Topic topic = topicRepository.findById(exam.getTopicId()).orElse(null);
-            return toResponse(exam, topic != null ? topic.getName() : null);
-        });
+        return new PageImpl<>(toResponses(exams.getContent()), pageable, exams.getTotalElements());
     }
 
     @Override
@@ -129,12 +123,7 @@ public class ExamServiceImpl implements IExamService {
 
     @Override
     public List<ExamResponse> getByTeacherId(Long teacherId) {
-        return examRepository.findByTeacherId(teacherId).stream()
-            .map(exam -> {
-                Topic topic = topicRepository.findById(exam.getTopicId()).orElse(null);
-                return toResponse(exam, topic != null ? topic.getName() : null);
-            })
-            .collect(Collectors.toList());
+        return toResponses(examRepository.findByTeacherId(teacherId));
     }
 
     @Override
@@ -154,10 +143,7 @@ public class ExamServiceImpl implements IExamService {
             return search(keyword, topicId, pageable);
         }
 
-        return exams.map(exam -> {
-            Topic topic = topicRepository.findById(exam.getTopicId()).orElse(null);
-            return toResponse(exam, topic != null ? topic.getName() : null);
-        });
+        return new PageImpl<>(toResponses(exams.getContent()), pageable, exams.getTotalElements());
     }
 
     private ExamResponse toResponse(Exam exam, String topicName) {
@@ -165,5 +151,43 @@ public class ExamServiceImpl implements IExamService {
         response.setTopicName(topicName);
         response.setQuestionCount((int) questionRepository.countByExamId(exam.getId()));
         return response;
+    }
+
+    private List<ExamResponse> toResponses(List<Exam> exams) {
+        if (exams == null || exams.isEmpty()) {
+            return List.of();
+        }
+
+        Set<Long> topicIds = exams.stream()
+                .map(Exam::getTopicId)
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+        Map<Long, String> topicNameById = topicIds.isEmpty()
+                ? Collections.emptyMap()
+                : topicRepository.findAllById(topicIds).stream()
+                .collect(Collectors.toMap(Topic::getId, Topic::getName));
+        return toResponses(exams, topicNameById);
+    }
+
+    private List<ExamResponse> toResponses(List<Exam> exams, Map<Long, String> topicNameById) {
+        if (exams == null || exams.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> examIds = exams.stream().map(Exam::getId).toList();
+        Map<Long, Integer> questionCountByExamId = questionRepository.countQuestionsByExamIds(examIds).stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> ((Long) row[1]).intValue()
+                ));
+
+        return exams.stream()
+                .map(exam -> {
+                    ExamResponse response = examMapper.toResponse(exam);
+                    response.setTopicName(topicNameById.get(exam.getTopicId()));
+                    response.setQuestionCount(questionCountByExamId.getOrDefault(exam.getId(), 0));
+                    return response;
+                })
+                .collect(Collectors.toList());
     }
 }

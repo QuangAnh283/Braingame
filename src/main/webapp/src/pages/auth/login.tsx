@@ -1,12 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaBrain, FaExclamationCircle, FaEye, FaEyeSlash, FaLock, FaUser } from 'react-icons/fa';
-import authApi from '../../services/auth-api';
 import '../../styles/pages/auth/login.css';
 import { usePopup } from '@shared/hooks/use-popup';
 import PopupNotification from '@shared/components/PopupNotification';
 import authStore from '../../stores/auth-store';
-import { JwtPayload, jwtDecode } from 'jwt-decode';
 import Decoration from '../../shared/components/Decoration';
 
 type LoginFormData = {
@@ -19,10 +17,6 @@ type LoginErrors = {
     password?: string;
 };
 
-type DecodedToken = JwtPayload & {
-    typeAccount?: 'ADMIN' | 'TEACHER' | 'PLAYER';
-};
-
 function Login() {
     const [formData, setFormData] = useState<LoginFormData>({ username: '', password: '' });
     const [errors, setErrors] = useState<LoginErrors>({});
@@ -33,6 +27,7 @@ function Login() {
 
     const isAuthenticated = authStore((state) => state.isAuthenticated);
     const user = authStore((state) => state.user);
+    const login = authStore((state) => state.login);
 
     useEffect(() => {
         if (isAuthenticated && user?.role) {
@@ -82,17 +77,11 @@ function Login() {
             setIsSubmitting(true);
 
             try {
-                const response = await authApi.login({
-                    username: formData.username,
-                    password: formData.password,
-                });
+                const response = await login(formData.username, formData.password);
                 
                 const userData = response.data;
-                const accessToken = userData?.accessToken;
-                
-                // Decode JWT to get typeAccount
-                const decoded = jwtDecode<DecodedToken>(accessToken);
-                const userRole = decoded?.typeAccount;
+                const rawRole = userData?.role || userData?.typeAccount;
+                const userRole = rawRole === 'HOST' ? 'TEACHER' : rawRole;
                 
                 showSuccess('Đăng nhập thành công!');
                 
@@ -115,7 +104,7 @@ function Login() {
                 setIsSubmitting(false);
             }
         },
-        [validateForm, formData.username, formData.password, showSuccess, navigate, showWarning, showError]
+        [validateForm, formData.username, formData.password, showSuccess, navigate, showWarning, showError, login]
     );
 
     const togglePasswordVisibility = useCallback(() => {

@@ -1,4 +1,4 @@
-package org.example.quizizz.controller.api;
+﻿package org.example.quizizz.controller.api;
 
 import org.example.quizizz.common.config.ApiResponse;
 import org.example.quizizz.common.constants.MessageCode;
@@ -21,13 +21,13 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
-@Tag(name = "6. User", description = "APIs liên quan đến người dùng")
+@Tag(name = "6. Người dùng", description = "API liên quan đến người dùng")
 public class UserController {
 
     private final IAuthService authService;
     private final IUserService userService;
 
-    @Operation(summary = "Tạo mới user", description = "Tạo mới một người dùng trong hệ thống")
+    @Operation(summary = "Tạo mới người dùng", description = "Tạo mới một người dùng trong hệ thống")
     @PostMapping
     @PreAuthorize("hasAuthority('user:manage')")
     public ResponseEntity<ApiResponse<UserResponse>> create(@Valid @RequestBody CreateUserRequest request) {
@@ -35,7 +35,7 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, response));
     }
 
-    @Operation(summary = "Cập nhật user", description = "Cập nhật thông tin người dùng theo ID")
+    @Operation(summary = "Cập nhật người dùng", description = "Cập nhật thông tin người dùng theo ID")
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('user:manage')")
     public ResponseEntity<ApiResponse<UserResponse>> update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
@@ -43,7 +43,7 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, response));
     }
 
-    @Operation(summary = "Xóa user", description = "Xóa một người dùng theo ID")
+    @Operation(summary = "Xóa người dùng", description = "Xóa một người dùng theo ID")
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAuthority('user:manage')")
     public ResponseEntity<ApiResponse<String>> delete(@PathVariable Long id) {
@@ -51,7 +51,7 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, "User deleted successfully"));
     }
 
-    @Operation(summary = "Đếm số lượng user", description = "Lấy tổng số lượng người dùng trong hệ thống")
+    @Operation(summary = "Đếm số lượng người dùng", description = "Lấy tổng số lượng người dùng trong hệ thống")
     @GetMapping("/count")
     @PreAuthorize("hasAuthority('user:manage')")
     public ResponseEntity<ApiResponse<Long>> count() {
@@ -59,7 +59,7 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, count));
     }
 
-    @Operation(summary = "Tìm kiếm user", description = "Tìm kiếm và phân trang người dùng")
+    @Operation(summary = "Tìm kiếm người dùng", description = "Tìm kiếm và phân trang người dùng")
     @GetMapping("/search")
     @PreAuthorize("hasAuthority('user:manage')")
     public ResponseEntity<ApiResponse<PageResponse<UserResponse>>> search(
@@ -72,7 +72,7 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, response));
     }
 
-    @Operation(summary = "Lấy user theo ID", description = "Lấy thông tin chi tiết người dùng theo ID")
+    @Operation(summary = "Lấy người dùng theo ID", description = "Lấy thông tin chi tiết người dùng theo ID")
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('user:manage')")
     public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable Long id) {

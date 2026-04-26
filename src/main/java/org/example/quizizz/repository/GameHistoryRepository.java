@@ -27,4 +27,21 @@ public interface GameHistoryRepository extends JpaRepository<GameHistory, Long> 
            "GROUP BY gh.userId " +
            "ORDER BY avgScore DESC")
     List<Object[]> findLeaderboardByTopicId(@Param("topicId") Long topicId);
+
+    @Query(value = """
+            SELECT ranked.game_session_id, ranked.user_rank
+            FROM (
+                SELECT gh.game_session_id,
+                       gh.user_id,
+                       RANK() OVER (PARTITION BY gh.game_session_id ORDER BY gh.score DESC) AS user_rank
+                FROM game_histories gh
+                WHERE gh.game_session_id IN (
+                    SELECT user_gh.game_session_id
+                    FROM game_histories user_gh
+                    WHERE user_gh.user_id = :userId
+                )
+            ) ranked
+            WHERE ranked.user_id = :userId
+            """, nativeQuery = true)
+    List<Object[]> findSessionRanksByUserId(@Param("userId") Long userId);
 }

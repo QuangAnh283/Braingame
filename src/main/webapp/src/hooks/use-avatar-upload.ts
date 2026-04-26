@@ -19,22 +19,10 @@ export const useAvatarUpload = (profileData) => {
     // Hàm xử lý avatar URL
     const getAvatarUrl = useCallback((avatarURL) => {
         if (!avatarURL) return '';
-
-        // Nếu là full URL (http/https), trả về nguyên
         if (avatarURL.startsWith('http://') || avatarURL.startsWith('https://')) {
             return avatarURL;
         }
-
-        // Backend URL - thay đổi theo cấu hình thực tế
-        const BACKEND_URL = 'http://localhost:8080';
-
-        // Nếu avatarURL chỉ là filename, tạo full URL
-        if (!avatarURL.includes('/')) {
-            return `${BACKEND_URL}/api/v1/profile/avatar/${avatarURL}`;
-        }
-
-        // Nếu đã có path, chỉ cần thêm base URL
-        return `${BACKEND_URL}${avatarURL.startsWith('/') ? '' : '/'}${avatarURL}`;
+        return '';
     }, []);
 
     // Hàm fetch avatar
@@ -149,28 +137,16 @@ export const useAvatarUpload = (profileData) => {
             });
 
             // Kiểm tra response - điều chỉnh logic dựa trên backend response
-            if (response.status === 200 || response.data?.success || response.data?.data?.avatarUrl || response.data?.avatarUrl) {
+            if (response.status === 200 || response.data?.success || response.data?.data?.avatarURL || response.data?.data?.avatarUrl || response.data?.avatarURL || response.data?.avatarUrl) {
 
                 // Lấy avatarUrl từ response (có thể ở nhiều vị trí khác nhau)
-                const newAvatarUrl = response.data?.data?.avatarUrl || response.data?.avatarUrl || response.data?.url;
+                const newAvatarUrl = response.data?.data?.avatarURL || response.data?.data?.avatarUrl || response.data?.avatarURL || response.data?.avatarUrl || response.data?.url;
 
                 if (newAvatarUrl) {
                     setAvatarUrl(newAvatarUrl);
 
-                    // Cập nhật user state - lưu filename thay vì full URL
                     if (typeof setUser === 'function') {
-                        // Extract filename from URL if it's a full URL
-                        let filename = newAvatarUrl;
-                        try {
-                            const url = new URL(newAvatarUrl);
-                            // Nếu là full URL, lấy pathname làm filename
-                            filename = url.pathname.split('/').pop() || newAvatarUrl;
-                        } catch {
-                            // Nếu không phải URL, giữ nguyên
-                            filename = newAvatarUrl;
-                        }
-
-                        setUser(prev => ({ ...prev, avatarURL: filename }));
+                        setUser(prev => ({ ...prev, avatarURL: newAvatarUrl }));
                     }
                 }
 

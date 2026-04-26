@@ -1,6 +1,4 @@
 import api from './api-instance';
-import authStore from '../stores/auth-store';
-import Cookies from 'js-cookie';
 
 const login = async (payload) => {
   try {
@@ -8,21 +6,15 @@ const login = async (payload) => {
       throw new Error('Vui lòng cung cấp đầy đủ thông tin đăng nhập');
     }
     const res = await api.post('/auth/login', payload);
-    const { accessToken, refreshToken, ...user } = res.data?.data || {};
-    if (!accessToken || !refreshToken || !user || Object.keys(user).length === 0 || !/^eyJ/.test(accessToken)) {
-      throw new Error('Đăng nhập thất bại: Token hoặc thông tin người dùng không hợp lệ');
+    const user = res.data?.data;
+    if (!user || Object.keys(user).length === 0) {
+      throw new Error('Đăng nhập thất bại: thông tin người dùng không hợp lệ');
     }
 
-    Cookies.set('accessToken', accessToken, { expires: 7, secure: true, sameSite: 'strict' });
-    Cookies.set('refreshToken', refreshToken, { expires: 7, secure: true, sameSite: 'strict' });
-    sessionStorage.setItem('accessToken', accessToken);
-    sessionStorage.setItem('refreshToken', refreshToken);
-
-    authStore.getState().setUser(user);
     return {
       status: res.status,
       message: res.data.message || 'Đăng nhập thành công',
-      data: res.data.data,
+      data: user,
       isSuccess: res.data.status === 200,
       timestamp: res.data.timestamp || new Date().toISOString(),
     };
@@ -66,9 +58,6 @@ const register = async (payload) => {
 const logout = async () => {
   try {
     await api.post('/auth/logout');
-    Cookies.remove('accessToken');
-    Cookies.remove('refreshToken');
-    authStore.getState().clearUser();
   } catch (error) {
     throw new Error(error.response?.data?.message || 'Đăng xuất thất bại');
   }
@@ -141,26 +130,7 @@ const getUser = async () => {
 
 const refreshToken = async () => {
   try {
-    const currentRefreshToken = Cookies.get('refreshToken');
-    if (!currentRefreshToken) {
-      throw new Error('Không có refresh token');
-    }
-
-    // Theo API spec, gửi refreshToken dưới dạng string trong body
-    const res = await api.post('/auth/refresh', currentRefreshToken, {
-      headers: {
-        'Content-Type': 'text/plain'
-      }
-    });
-
-    const { accessToken, refreshToken: newRefreshToken } = res.data.data;
-
-    // Lưu token mới vào Cookies và sessionStorage
-    Cookies.set('accessToken', accessToken, { expires: 7, secure: true, sameSite: 'strict' });
-    Cookies.set('refreshToken', newRefreshToken, { expires: 7, secure: true, sameSite: 'strict' });
-    sessionStorage.setItem('accessToken', accessToken);
-    sessionStorage.setItem('refreshToken', newRefreshToken);
-
+    const res = await api.post('/auth/refresh', null);
     return {
       status: res.status,
       message: res.data.message || 'Refresh token thành công',
@@ -179,7 +149,7 @@ const getAvatar = async () => {
     return {
       status: res.status,
       message: res.data.message || 'Lấy avatar thành công',
-      data: res.data.data, // Presigned URL của avatar
+      data: res.data.data,
       isSuccess: res.status === 200 && res.data.data,
       timestamp: res.data.timestamp || new Date().toISOString(),
     };

@@ -57,7 +57,8 @@ public class ProfileServiceImplement implements IProfileService {
         response.setAddress(user.getAddress());
         response.setDob(user.getDob());
         response.setCreatedAt(user.getCreatedAt());
-        response.setAvatarURL(user.getAvatarURL()); // avatarURL đã là presignedUrl
+        response.setTypeAccount(user.getTypeAccount());
+        response.setAvatarURL(resolveAvatarUrl(user.getAvatarURL()));
         
         return response;
     }
@@ -92,13 +93,12 @@ public class ProfileServiceImplement implements IProfileService {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new NoSuchElementException("User not found with id: " + userId));
         
-        // Upload file và lưu presignedUrl vào DB
-        String presignedUrl = fileStorageService.uploadAvatar(file, userId);
-        user.setAvatarURL(presignedUrl);
+        String avatarObjectKey = fileStorageService.uploadAvatar(file, userId);
+        user.setAvatarURL(avatarObjectKey);
         userRepository.save(user);
         
         UpdateAvatarResponse response = new UpdateAvatarResponse();
-        response.setAvatarURL(presignedUrl);
+        response.setAvatarURL(resolveAvatarUrl(avatarObjectKey));
         return response;
     }
 
@@ -113,7 +113,7 @@ public class ProfileServiceImplement implements IProfileService {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new NoSuchElementException("User not found with id: " + userId));
         
-        return user.getAvatarURL(); // avatarURL đã là presignedUrl
+        return resolveAvatarUrl(user.getAvatarURL());
     }
     
     @Override
@@ -126,7 +126,7 @@ public class ProfileServiceImplement implements IProfileService {
                 response.setId(user.getId());
                 response.setUsername(user.getUsername());
                 response.setFullName(user.getFullName());
-                response.setAvatarURL(user.getAvatarURL()); // avatarURL đã là presignedUrl
+                response.setAvatarURL(resolveAvatarUrl(user.getAvatarURL()));
                 return response;
             })
             .collect(java.util.stream.Collectors.toList());
@@ -141,9 +141,24 @@ public class ProfileServiceImplement implements IProfileService {
         response.setId(user.getId());
         response.setUsername(user.getUsername());
         response.setFullName(user.getFullName());
-        response.setAvatarURL(user.getAvatarURL()); // avatarURL đã là presignedUrl
+        response.setAvatarURL(resolveAvatarUrl(user.getAvatarURL()));
         
         return response;
+    }
+
+    private String resolveAvatarUrl(String avatarObjectKeyOrUrl) {
+        if (avatarObjectKeyOrUrl == null || avatarObjectKeyOrUrl.isBlank()) {
+            return null;
+        }
+        if (avatarObjectKeyOrUrl.startsWith("http://") || avatarObjectKeyOrUrl.startsWith("https://")) {
+            return avatarObjectKeyOrUrl;
+        }
+        try {
+            return fileStorageService.getAvatarUrl(avatarObjectKeyOrUrl);
+        } catch (Exception e) {
+            log.warn("Cannot generate avatar URL for object key {}: {}", avatarObjectKeyOrUrl, e.getMessage());
+            return null;
+        }
     }
 
     /**
@@ -228,15 +243,10 @@ public class ProfileServiceImplement implements IProfileService {
      * Tính rank hiện tại dựa trên total score
      */
     private Integer calculateCurrentRank(Long userId, Integer totalScore) {
-        List<Rank> allRanks = rankRepository.findAll();
-        allRanks.sort((r1, r2) -> r2.getTotalScore().compareTo(r1.getTotalScore()));
-
-        for (int i = 0; i < allRanks.size(); i++) {
-            if (allRanks.get(i).getUserId().equals(userId)) {
-                return i + 1;
-            }
+        if (totalScore == null) {
+            return 0;
         }
-        return allRanks.size() + 1;
+        return (int) rankRepository.countByTotalScoreGreaterThan(totalScore) + 1;
     }
 
     /**
@@ -258,48 +268,10 @@ public class ProfileServiceImplement implements IProfileService {
      */
     private String findBestTopic(Long userId) {
         try {
-            List<UserAnswer> userAnswers = userAnswerRepository.findByUserId(userId);
-
-            if (userAnswers.isEmpty()) {
-                return "N/A";
-            }
-
-            // Nhóm theo topic và tính tỷ lệ đúng
-            Map<Long, List<UserAnswer>> answersByTopic = new HashMap<>();
-
-            for (UserAnswer answer : userAnswers) {
-                Question question = questionRepository.findById(answer.getQuestionId()).orElse(null);
-                if (question != null && question.getExamId() != null) {
-                    Exam exam = examRepository.findById(question.getExamId()).orElse(null);
-                    if (exam != null && exam.getTopicId() != null) {
-                        answersByTopic.computeIfAbsent(exam.getTopicId(), k -> new ArrayList<>()).add(answer);
-                    }
-                }
-            }
-
-            // Tìm topic có tỷ lệ đúng cao nhất
-            Long bestTopicId = null;
-            double bestAccuracy = 0.0;
-
-            for (Map.Entry<Long, List<UserAnswer>> entry : answersByTopic.entrySet()) {
-                List<UserAnswer> answers = entry.getValue();
-                long correctCount = answers.stream().filter(UserAnswer::getIsCorrect).count();
-                double accuracy = (double) correctCount / answers.size();
-
-                if (accuracy > bestAccuracy) {
-                    bestAccuracy = accuracy;
-                    bestTopicId = entry.getKey();
-                }
-            }
-
-            if (bestTopicId != null) {
-                Optional<Topic> topicOpt = topicRepository.findById(bestTopicId);
-                if (topicOpt.isPresent()) {
-                    return topicOpt.get().getName();
-                }
-            }
-
-            return "N/A";
+            return userAnswerRepository.findTopicAccuracyByUserId(userId).stream()
+                    .findFirst()
+                    .map(row -> (String) row[0])
+                    .orElse("N/A");
         } catch (Exception e) {
             log.error("Error finding best topic: {}", e.getMessage());
             return "N/A";
@@ -311,70 +283,19 @@ public class ProfileServiceImplement implements IProfileService {
      * Rank càng thấp càng tốt (1 là tốt nhất).
      */
     private int calculateHighestRank(Long userId, List<GameHistory> gameHistories) {
-        if (gameHistories.isEmpty()) {
-            return 0;
-        }
-
-        int bestRank = Integer.MAX_VALUE;
-
-        // Nhóm game histories theo game session
-        Map<Long, List<GameHistory>> historiesBySession = gameHistories.stream()
-            .filter(gh -> gh.getGameSessionId() != null)
-            .collect(Collectors.groupingBy(GameHistory::getGameSessionId));
-
-        // Với mỗi game session, tính rank của user
-        for (Map.Entry<Long, List<GameHistory>> entry : historiesBySession.entrySet()) {
-            List<GameHistory> sessionHistories = entry.getValue();
-            
-            // Sắp xếp theo score giảm dần
-            sessionHistories.sort((h1, h2) -> Integer.compare(h2.getScore(), h1.getScore()));
-            
-            // Tìm rank của user trong session này
-            for (int i = 0; i < sessionHistories.size(); i++) {
-                if (sessionHistories.get(i).getUserId().equals(userId)) {
-                    int rank = i + 1;
-                    if (rank < bestRank) {
-                        bestRank = rank;
-                    }
-                    break;
-                }
-            }
-        }
-
-        return bestRank == Integer.MAX_VALUE ? 0 : bestRank;
+        return gameHistoryRepository.findSessionRanksByUserId(userId).stream()
+                .map(row -> ((Number) row[1]).intValue())
+                .min(Integer::compareTo)
+                .orElse(0);
     }
 
     /**
      * Đếm số medals (số lần đạt top 3) của user.
      */
     private int calculateMedals(Long userId, List<GameHistory> gameHistories) {
-        if (gameHistories.isEmpty()) {
-            return 0;
-        }
-
-        int medalCount = 0;
-
-        // Nhóm game histories theo game session
-        Map<Long, List<GameHistory>> historiesBySession = gameHistories.stream()
-            .filter(gh -> gh.getGameSessionId() != null)
-            .collect(Collectors.groupingBy(GameHistory::getGameSessionId));
-
-        // Với mỗi game session, kiểm tra xem user có đạt top 3 không
-        for (Map.Entry<Long, List<GameHistory>> entry : historiesBySession.entrySet()) {
-            List<GameHistory> sessionHistories = entry.getValue();
-            
-            // Sắp xếp theo score giảm dần
-            sessionHistories.sort((h1, h2) -> Integer.compare(h2.getScore(), h1.getScore()));
-            
-            // Kiểm tra xem user có trong top 3 không
-            for (int i = 0; i < Math.min(3, sessionHistories.size()); i++) {
-                if (sessionHistories.get(i).getUserId().equals(userId)) {
-                    medalCount++;
-                    break;
-                }
-            }
-        }
-
-        return medalCount;
+        return (int) gameHistoryRepository.findSessionRanksByUserId(userId).stream()
+                .map(row -> ((Number) row[1]).intValue())
+                .filter(rank -> rank <= 3)
+                .count();
     }
 }

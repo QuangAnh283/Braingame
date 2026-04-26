@@ -15,5 +15,6 @@ public class UpdateProfileResponse {
     private String address;
     private LocalDate dob;
     private String avatarURL;
+    private String typeAccount;
     private LocalDateTime createdAt;
 }

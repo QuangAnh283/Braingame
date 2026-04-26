@@ -1,19 +1,14 @@
 import { create } from 'zustand';
 import authApi from '../services/auth-api';
-import { JwtPayload, jwtDecode } from 'jwt-decode';
-import Cookies from 'js-cookie';
 
-type UserRole = 'PLAYER' | 'TEACHER' | 'ADMIN' | null;
+type UserRole = 'PLAYER' | 'TEACHER' | 'HOST' | 'ADMIN' | null;
 
 type AuthUser = {
   id?: number | string;
   role?: Exclude<UserRole, null>;
+  typeAccount?: Exclude<UserRole, null>;
   [key: string]: unknown;
 } | null;
-
-type DecodedToken = JwtPayload & {
-  typeAccount?: Exclude<UserRole, null>;
-};
 
 type AuthState = {
   user: AuthUser;
@@ -21,28 +16,45 @@ type AuthState = {
   isLoading: boolean;
   error: string | null;
   typeAccount: UserRole;
-  setUser: (user: AuthUser) => void;
+  setUser: (_user: AuthUser) => void;
   clearUser: () => void;
-  setLoading: (isLoading: boolean) => void;
-  setError: (error: string | null) => void;
+  setLoading: (_isLoading: boolean) => void;
+  setError: (_error: string | null) => void;
   initialize: () => Promise<void>;
-  login: (username: string, password: string) => Promise<unknown>;
+  login: (_username: string, _password: string) => Promise<any>;
   logout: () => Promise<void>;
 };
+
+const toUiRole = (role?: string | null): UserRole => {
+  if (!role) return null;
+  if (role === 'HOST') return 'TEACHER';
+  if (role === 'ADMIN' || role === 'PLAYER' || role === 'TEACHER') return role;
+  return null;
+};
+
+const normalizeUser = (data: any): AuthUser => {
+  if (!data) return null;
+  const role = toUiRole(data.typeAccount || data.role);
+  return { ...data, id: data.id ?? data.userId, role: role || undefined, typeAccount: role || undefined };
+};
+
+const errorMessage = (error: any, fallback: string) =>
+  error?.response?.data?.message || error?.message || fallback;
 
 const authStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
   error: null,
-  typeAccount: null, // PLAYER, TEACHER, ADMIN
+  typeAccount: null,
 
   setUser: (user) =>
       set(() => {
+        const normalizedUser = normalizeUser(user);
         return {
-          user,
-          isAuthenticated: !!user,
-          typeAccount: user?.role || null,
+          user: normalizedUser,
+          isAuthenticated: !!normalizedUser,
+          typeAccount: normalizedUser?.typeAccount || null,
           error: null,
         };
       }),
@@ -60,88 +72,26 @@ const authStore = create<AuthState>((set) => ({
   setError: (error) => set({ error }),
 
   initialize: async () => {
-    // Kiểm tra token từ Cookies trước, nếu không có thì từ sessionStorage
-    let token = Cookies.get('accessToken');
-    let refreshToken = Cookies.get('refreshToken');
-
-    if (!token) {
-      token = sessionStorage.getItem('accessToken');
-      refreshToken = sessionStorage.getItem('refreshToken');
-      // Nếu có token từ sessionStorage, đồng bộ lại vào Cookies
-      if (token && refreshToken) {
-        Cookies.set('accessToken', token, { expires: 7, secure: true, sameSite: 'strict' });
-        Cookies.set('refreshToken', refreshToken, { expires: 7, secure: true, sameSite: 'strict' });
-      }
-    }
-
-    if (!token || !refreshToken) {
-      set({ user: null, isAuthenticated: false });
-      return;
-    }
-
+    set({ isLoading: true, error: null });
     try {
-      let decoded: DecodedToken;
+      let response;
       try {
-        decoded = jwtDecode<DecodedToken>(token);
+        response = await authApi.getUser();
       } catch {
-        // Token không hợp lệ, clear và return
-        Cookies.remove('accessToken');
-        Cookies.remove('refreshToken');
-        sessionStorage.removeItem('accessToken');
-        sessionStorage.removeItem('refreshToken');
-        set({ user: null, isAuthenticated: false });
-        return;
+        await authApi.refreshToken();
+        response = await authApi.getUser();
       }
 
-      if ((decoded.exp ?? 0) * 1000 < Date.now()) {
-        // Token hết hạn, thử refresh
-        const refreshResponse = await authApi.refreshToken();
-        const { accessToken: newAccessToken, refreshToken: newRefreshToken } = refreshResponse.data.data;
-
-        // Cập nhật token mới
-        Cookies.set('accessToken', newAccessToken, { expires: 7, secure: true, sameSite: 'strict' });
-        Cookies.set('refreshToken', newRefreshToken, { expires: 7, secure: true, sameSite: 'strict' });
-        sessionStorage.setItem('accessToken', newAccessToken);
-        sessionStorage.setItem('refreshToken', newRefreshToken);
-
-        token = newAccessToken;
-      }
-
-      // Set role from decoded token immediately
-      const userWithRole = { role: decoded.typeAccount || undefined };
-      set({ 
-        user: userWithRole, 
-        isAuthenticated: true, 
-        typeAccount: decoded.typeAccount,
-        isLoading: true 
+      const user = normalizeUser(response.data);
+      set({
+        user,
+        isAuthenticated: !!user,
+        typeAccount: user?.typeAccount || null,
+        isLoading: false,
+        error: null,
       });
-      
-      // Then fetch full user data
-      try {
-        const response = await authApi.getUser();
-        const fullUserWithRole = { ...response.data, role: decoded.typeAccount || undefined };
-        set({ 
-          user: fullUserWithRole, 
-          isAuthenticated: true, 
-          typeAccount: decoded.typeAccount,
-          isLoading: false 
-        });
-      } catch {
-        // If getUser fails, keep the basic user with role
-        set({ isLoading: false });
-      }
-    } catch (error) {
-      // Nếu refresh thất bại, clear token và chuyển về login
-      Cookies.remove('accessToken');
-      Cookies.remove('refreshToken');
-      sessionStorage.removeItem('accessToken');
-      sessionStorage.removeItem('refreshToken');
-      // Chỉ set error nếu đã có token (đã từng đăng nhập)
-      if (token) {
-        set({ user: null, isAuthenticated: false, error: error.message, isLoading: false });
-      } else {
-        set({ user: null, isAuthenticated: false, isLoading: false });
-      }
+    } catch {
+      set({ user: null, isAuthenticated: false, typeAccount: null, isLoading: false });
     }
   },
 
@@ -149,27 +99,18 @@ const authStore = create<AuthState>((set) => ({
     try {
       set({ isLoading: true, error: null });
       const response = await authApi.login({ username, password });
-      const { accessToken, refreshToken, ...user } = response.data.data;
+      const user = normalizeUser(response.data);
 
-      // Decode token to get typeAccount
-      const decoded = jwtDecode<DecodedToken>(accessToken);
-      const userWithRole = { ...user, role: decoded.typeAccount || undefined };
-
-      // Lưu token vào Cookies và sessionStorage để persist khi reload
-      Cookies.set('accessToken', accessToken, { expires: 7, secure: true, sameSite: 'strict' });
-      Cookies.set('refreshToken', refreshToken, { expires: 7, secure: true, sameSite: 'strict' });
-      sessionStorage.setItem('accessToken', accessToken);
-      sessionStorage.setItem('refreshToken', refreshToken);
-
-      set({ 
-        user: userWithRole, 
-        isAuthenticated: true, 
-        typeAccount: decoded.typeAccount,
-        isLoading: false 
+      set({
+        user,
+        isAuthenticated: !!user,
+        typeAccount: user?.typeAccount || null,
+        isLoading: false,
       });
       return response;
     } catch (error) {
-      set({ isLoading: false, error: error.message });
+      const message = errorMessage(error, 'Đăng nhập thất bại');
+      set({ isLoading: false, error: message });
       throw error;
     }
   },
@@ -178,18 +119,15 @@ const authStore = create<AuthState>((set) => ({
     try {
       set({ isLoading: true, error: null });
       await authApi.logout();
-      Cookies.remove('accessToken');
-      Cookies.remove('refreshToken');
-      sessionStorage.removeItem('accessToken');
-      sessionStorage.removeItem('refreshToken');
-      set({ 
-        user: null, 
-        isAuthenticated: false, 
+      set({
+        user: null,
+        isAuthenticated: false,
         typeAccount: null,
-        isLoading: false 
+        isLoading: false,
       });
     } catch (error) {
-      set({ isLoading: false, error: error.message });
+      const message = errorMessage(error, 'Đăng xuất thất bại');
+      set({ isLoading: false, error: message });
       throw error;
     }
   },

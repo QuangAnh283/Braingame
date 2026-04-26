@@ -1,4 +1,4 @@
-package org.example.quizizz.controller.api;
+﻿package org.example.quizizz.controller.api;
 
 import org.example.quizizz.common.config.ApiResponse;
 import org.example.quizizz.common.constants.MessageCode;
@@ -22,14 +22,14 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/rooms")
 @RequiredArgsConstructor
-@Tag(name = "8. Room", description = "Room management APIs")
+@Tag(name = "8. Phòng chơi", description = "API quản lý phòng chơi, người chơi và lời mời")
 public class RoomController {
 
     private final IRoomService roomService;
     private final JwtUtil jwtUtil;
 
     @PostMapping
-    @Operation(summary = "Tạo phòng mới")
+    @Operation(summary = "Tạo phòng mới", description = "Tạo một phòng chơi mới từ đề thi được chọn")
     public ResponseEntity<ApiResponse<RoomResponse>> createRoom(
             @Valid @RequestBody CreateRoomRequest request,
             HttpServletRequest httpRequest) {
@@ -41,21 +41,21 @@ public class RoomController {
     }
 
     @GetMapping("/{roomId}")
-    @Operation(summary = "Lấy thông tin phòng theo ID")
+    @Operation(summary = "Lấy thông tin phòng theo ID", description = "Trả về thông tin chi tiết phòng theo mã định danh")
     public ResponseEntity<ApiResponse<RoomResponse>> getRoomById(@PathVariable Long roomId) {
         RoomResponse roomResponse = roomService.getRoomById(roomId);
         return ResponseEntity.ok(ApiResponse.success(roomResponse));
     }
 
     @GetMapping("/code/{roomCode}")
-    @Operation(summary = "Lấy thông tin phòng theo room code")
+    @Operation(summary = "Lấy thông tin phòng theo mã phòng", description = "Trả về thông tin phòng thông qua mã phòng")
     public ResponseEntity<ApiResponse<RoomResponse>> getRoomByCode(@PathVariable String roomCode) {
         RoomResponse roomResponse = roomService.getRoomByCode(roomCode);
         return ResponseEntity.ok(ApiResponse.success(roomResponse));
     }
 
     @PutMapping("/{roomId}")
-    @Operation(summary = "Cập nhật thông tin phòng")
+    @Operation(summary = "Cập nhật thông tin phòng", description = "Cập nhật cấu hình phòng chơi bởi chủ phòng")
     public ResponseEntity<ApiResponse<RoomResponse>> updateRoom(
             @PathVariable Long roomId,
             @Valid @RequestBody UpdateRoomRequest request,
@@ -68,7 +68,7 @@ public class RoomController {
     }
 
     @DeleteMapping("/{roomId}")
-    @Operation(summary = "Xóa phòng")
+    @Operation(summary = "Xóa phòng", description = "Xóa phòng chơi khi chủ phòng kết thúc hoặc hủy phòng")
     public ResponseEntity<ApiResponse<Void>> deleteRoom(
             @PathVariable Long roomId,
             HttpServletRequest httpRequest) {
@@ -80,7 +80,7 @@ public class RoomController {
     }
 
     @GetMapping
-    @Operation(summary = "Lấy danh sách phòng với phân trang và tìm kiếm", description = "API đơn giản để lấy tất cả phòng (chỉ WAITING status, không bao gồm ARCHIVED). Hỗ trợ phân trang và tìm kiếm theo tên phòng.")
+    @Operation(summary = "Lấy danh sách phòng với phân trang và tìm kiếm", description = "Lấy danh sách phòng đang chờ bắt đầu, hỗ trợ phân trang và tìm kiếm theo tên phòng")
     public ResponseEntity<ApiResponse<PagedRoomResponse>> getRooms(
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "10") int size,
@@ -90,7 +90,7 @@ public class RoomController {
     }
 
     @PostMapping("/join")
-    @Operation(summary = "Join phòng bằng room code")
+    @Operation(summary = "Tham gia phòng bằng mã phòng", description = "Người chơi tham gia phòng thông qua mã phòng")
     public ResponseEntity<ApiResponse<RoomResponse>> joinRoom(
             @Valid @RequestBody JoinRoomRequest request,
             HttpServletRequest httpRequest) {
@@ -102,7 +102,7 @@ public class RoomController {
     }
 
     @PostMapping("/{roomId}/join-direct")
-    @Operation(summary = "Join phòng public trực tiếp bằng room ID")
+    @Operation(summary = "Tham gia trực tiếp phòng công khai", description = "Tham gia phòng công khai bằng ID phòng, không cần mã phòng")
     public ResponseEntity<ApiResponse<RoomResponse>> joinRoomDirect(
             @PathVariable Long roomId,
             HttpServletRequest httpRequest) {
@@ -114,7 +114,7 @@ public class RoomController {
     }
 
     @DeleteMapping("/{roomId}/leave")
-    @Operation(summary = "Rời khỏi phòng")
+    @Operation(summary = "Rời khỏi phòng", description = "Người chơi rời khỏi phòng hiện tại")
     public ResponseEntity<ApiResponse<Void>> leaveRoom(
             @PathVariable Long roomId,
             HttpServletRequest httpRequest) {
@@ -126,14 +126,14 @@ public class RoomController {
     }
 
     @GetMapping("/{roomId}/players")
-    @Operation(summary = "Lấy danh sách người chơi trong phòng")
+    @Operation(summary = "Lấy danh sách người chơi trong phòng", description = "Lấy danh sách thành viên đang có mặt trong phòng")
     public ResponseEntity<ApiResponse<List<RoomPlayerResponse>>> getRoomPlayers(@PathVariable Long roomId) {
         List<RoomPlayerResponse> players = roomService.getRoomPlayers(roomId);
         return ResponseEntity.ok(ApiResponse.success(players));
     }
 
     @DeleteMapping("/{roomId}/kick")
-    @Operation(summary = "Kick người chơi khỏi phòng")
+    @Operation(summary = "Mời người chơi rời phòng", description = "Chủ phòng mời một người chơi rời khỏi phòng")
     public ResponseEntity<ApiResponse<Void>> kickPlayer(
             @PathVariable Long roomId,
             @Valid @RequestBody KickPlayerRequest request,
@@ -146,7 +146,7 @@ public class RoomController {
     }
 
     @PostMapping("/invite")
-    @Operation(summary = "Mời người chơi vào phòng")
+    @Operation(summary = "Mời người chơi vào phòng", description = "Gửi lời mời tham gia phòng đến người chơi")
     public ResponseEntity<ApiResponse<InvitationResponse>> invitePlayer(
             @Valid @RequestBody InvitePlayerRequest request,
             HttpServletRequest httpRequest) {
@@ -158,7 +158,7 @@ public class RoomController {
     }
 
     @PostMapping("/invitations/{invitationId}/respond")
-    @Operation(summary = "Phản hồi lời mời")
+    @Operation(summary = "Phản hồi lời mời", description = "Chấp nhận hoặc từ chối lời mời tham gia phòng")
     public ResponseEntity<ApiResponse<RoomResponse>> respondToInvitation(
             @PathVariable Long invitationId,
             @RequestParam boolean accept,
@@ -175,7 +175,7 @@ public class RoomController {
     }
 
     @GetMapping("/invitations")
-    @Operation(summary = "Lấy danh sách lời mời của user")
+    @Operation(summary = "Lấy danh sách lời mời của người dùng", description = "Lấy toàn bộ lời mời đang chờ phản hồi của người dùng hiện tại")
     public ResponseEntity<ApiResponse<List<InvitationResponse>>> getUserInvitations(HttpServletRequest httpRequest) {
         Long userId = getUserIdFromRequest(httpRequest);
         List<InvitationResponse> invitations = roomService.getUserInvitations(userId);
@@ -183,7 +183,7 @@ public class RoomController {
     }
 
     @PostMapping("/{roomId}/transfer-host")
-    @Operation(summary = "Chuyển quyền host")
+    @Operation(summary = "Chuyển quyền chủ phòng", description = "Chuyển quyền chủ phòng cho một thành viên khác")
     public ResponseEntity<ApiResponse<RoomResponse>> transferHost(
             @PathVariable Long roomId,
             @RequestParam Long newHostId,
@@ -196,7 +196,7 @@ public class RoomController {
     }
 
     @PostMapping("/{roomId}/start")
-    @Operation(summary = "Bắt đầu game")
+    @Operation(summary = "Bắt đầu trò chơi", description = "Chủ phòng bắt đầu ván chơi khi phòng đã sẵn sàng")
     public ResponseEntity<ApiResponse<Void>> startGame(
             @PathVariable Long roomId,
             HttpServletRequest httpRequest) {

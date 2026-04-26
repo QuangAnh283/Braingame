@@ -1,4 +1,4 @@
-package org.example.quizizz.controller.api;
+﻿package org.example.quizizz.controller.api;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,7 +24,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/exams")
 @RequiredArgsConstructor
-@Tag(name = "Exam", description = "APIs liên quan đến đề thi")
+@Tag(name = "Đề thi", description = "API liên quan đến đề thi")
 public class ExamController {
 
     private final IExamService examService;
@@ -70,7 +70,7 @@ public class ExamController {
     }
 
     @GetMapping
-    @Operation(summary = "Lấy tất cả đề thi", description = "Lấy danh sách tất cả đề thi (teacher chỉ xem của mình)")
+    @Operation(summary = "Lấy tất cả đề thi", description = "Lấy danh sách tất cả đề thi (giáo viên chỉ xem của mình)")
     public ResponseEntity<ApiResponse<List<ExamResponse>>> getAll(Authentication authentication) {
         Long teacherId = (Long) authentication.getPrincipal();
         JwtAuthenticationToken auth = (JwtAuthenticationToken) authentication;
@@ -86,7 +86,7 @@ public class ExamController {
     }
 
     @GetMapping("/topic/{topicId}")
-    @Operation(summary = "Lấy đề thi theo chủ đề", description = "Lấy danh sách đề thi thuộc một chủ đề (teacher chỉ xem của mình)")
+    @Operation(summary = "Lấy đề thi theo chủ đề", description = "Lấy danh sách đề thi thuộc một chủ đề (giáo viên chỉ xem của mình)")
     public ResponseEntity<ApiResponse<List<ExamResponse>>> getByTopicId(@PathVariable Long topicId, Authentication authentication) {
         Long teacherId = (Long) authentication.getPrincipal();
         JwtAuthenticationToken auth = (JwtAuthenticationToken) authentication;
@@ -102,7 +102,7 @@ public class ExamController {
     }
 
     @GetMapping("/search")
-    @Operation(summary = "Tìm kiếm đề thi", description = "Tìm kiếm và lọc đề thi với phân trang (teacher chỉ xem của mình)")
+    @Operation(summary = "Tìm kiếm đề thi", description = "Tìm kiếm và lọc đề thi với phân trang (giáo viên chỉ xem của mình)")
     public ResponseEntity<ApiResponse<PageResponse<ExamResponse>>> search(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long topicId,
@@ -135,7 +135,7 @@ public class ExamController {
 
     @GetMapping("/my-exams")
     @PreAuthorize("hasAuthority('topic:manage')")
-    @Operation(summary = "Lấy đề thi của teacher", description = "Lấy danh sách đề thi do teacher hiện tại tạo")
+    @Operation(summary = "Lấy đề thi của giáo viên", description = "Lấy danh sách đề thi do giáo viên hiện tại tạo")
     public ResponseEntity<ApiResponse<List<ExamResponse>>> getMyExams(Authentication authentication) {
         Long teacherId = (Long) authentication.getPrincipal();
         List<ExamResponse> response = examService.getByTeacherId(teacherId);
@@ -144,7 +144,7 @@ public class ExamController {
 
     @GetMapping("/my-exams/search")
     @PreAuthorize("hasAuthority('topic:manage')")
-    @Operation(summary = "Tìm kiếm đề thi của teacher", description = "Tìm kiếm và lọc đề thi do teacher hiện tại tạo")
+    @Operation(summary = "Tìm kiếm đề thi của giáo viên", description = "Tìm kiếm và lọc đề thi do giáo viên hiện tại tạo")
     public ResponseEntity<ApiResponse<PageResponse<ExamResponse>>> searchMyExams(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long topicId,

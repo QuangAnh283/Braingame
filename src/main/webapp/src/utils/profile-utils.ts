@@ -21,20 +21,8 @@ export const getFieldValue = (data, fieldName) => data?.[fieldName] || 'Chưa c�
 
 export const getAvatarUrl = (avatarURL) => {
     if (!avatarURL) return '';
-
-    // Nếu là full URL (http/https), trả về nguyên
     if (avatarURL.startsWith('http://') || avatarURL.startsWith('https://')) {
         return avatarURL;
     }
-
-    // Backend URL - thay đổi theo cấu hình thực tế
-    const BACKEND_URL = 'http://localhost:8080';
-
-    // Nếu avatarURL chỉ là filename, tạo full URL
-    if (!avatarURL.includes('/')) {
-        return `${BACKEND_URL}/api/v1/profile/avatar/${avatarURL}`;
-    }
-
-    // Nếu đã có path, chỉ cần thêm base URL
-    return `${BACKEND_URL}${avatarURL.startsWith('/') ? '' : '/'}${avatarURL}`;
+    return '';
 };

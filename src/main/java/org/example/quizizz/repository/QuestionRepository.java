@@ -16,21 +16,15 @@ public interface QuestionRepository extends JpaRepository<Question, Long> {
     List<Question> findByExamIdAndQuestionType(Long examId, String questionType);
     List<Question> findByQuestionType(String questionType);
     
-    @Query(value = "SELECT * FROM questions WHERE exam_id = :examId AND question_type = :questionType ORDER BY RANDOM() LIMIT :limit", nativeQuery = true)
-    List<Question> findRandomQuestionsByExamAndType(@Param("examId") Long examId, @Param("questionType") String questionType, @Param("limit") int limit);
-    
-    @Query(value = "SELECT * FROM questions WHERE exam_id = :examId ORDER BY RANDOM() LIMIT :limit", nativeQuery = true)
-    List<Question> findRandomQuestionsByExam(@Param("examId") Long examId, @Param("limit") int limit);
-    
-    @Query(value = "SELECT * FROM questions WHERE question_type = :questionType ORDER BY RANDOM() LIMIT :limit", nativeQuery = true)
-    List<Question> findRandomQuestionsByType(@Param("questionType") String questionType, @Param("limit") int limit);
-
-    @Query(value = "SELECT * FROM questions ORDER BY RANDOM() LIMIT :limit", nativeQuery = true)
-    List<Question> findRandomQuestions(@Param("limit") int limit);
-    
     long countByExamIdAndQuestionType(Long examId, String questionType);
     long countByExamId(Long examId);
+    long countByQuestionType(String questionType);
+
+    @Query("SELECT q.examId, COUNT(q) FROM Question q WHERE q.examId IN :examIds GROUP BY q.examId")
+    List<Object[]> countQuestionsByExamIds(@Param("examIds") List<Long> examIds);
     
+    Page<Question> findByExamId(Long examId, Pageable pageable);
+    Page<Question> findByQuestionType(String questionType, Pageable pageable);
     Page<Question> findByQuestionTextContainingIgnoreCase(String keyword, Pageable pageable);
     Page<Question> findByExamIdAndQuestionTextContainingIgnoreCase(Long examId, String keyword, Pageable pageable);
     Page<Question> findByQuestionTypeAndQuestionTextContainingIgnoreCase(String questionType, String keyword, Pageable pageable);

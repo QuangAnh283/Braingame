@@ -129,12 +129,7 @@ const GameRoom = () => {
 
         const initializeWebSocket = async () => {
             try {
-                const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
-                if (!token) {
-                    throw new Error('No authentication token found');
-                }
-
-                await socketService.connect(token);
+                await socketService.connect();
                 setIsConnected(true);
                 setupGameSubscriptions();
             } catch {

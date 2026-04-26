@@ -21,7 +21,8 @@ public class MinioConfig {
     private String secretKey;
     private String imageBucket;
     private String avatarBucket;
-    private Integer presignedUrlExpiryDays = 7; // Mặc định 7 ngày
+    private Integer presignedUrlExpiryDays = 7;
+    private Integer presignedUrlExpiryMinutes = 60;
 
     /**
      * MinIO client cho thao tác nội bộ (upload, delete).

@@ -1,4 +1,4 @@
-package org.example.quizizz.controller.api;
+﻿package org.example.quizizz.controller.api;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -14,7 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/leaderboard")
 @RequiredArgsConstructor
-@Tag(name = "Leaderboard", description = "APIs liên quan đến bảng xếp hạng")
+@Tag(name = "Bảng xếp hạng", description = "API liên quan đến bảng xếp hạng")
 public class LeaderboardController {
 
     private final ILeaderboardService leaderboardService;

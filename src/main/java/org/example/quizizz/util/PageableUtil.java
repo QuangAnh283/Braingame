@@ -9,6 +9,7 @@ import java.util.Set;
 public class PageableUtil {
 
     private static final int MAX_PAGE_SIZE = 100;
+    private static final int MAX_PAGE_NUMBER = 10_000;
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
             "id",
             "name",
@@ -25,7 +26,7 @@ public class PageableUtil {
     );
     
     public static Pageable createPageable(int page, int size, String sort) {
-        int sanitizedPage = Math.max(page, 0);
+        int sanitizedPage = Math.max(0, Math.min(page, MAX_PAGE_NUMBER));
         int sanitizedSize = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
 
         if (sort == null || sort.isBlank()) {
