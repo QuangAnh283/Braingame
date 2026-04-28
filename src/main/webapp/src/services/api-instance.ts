@@ -13,7 +13,16 @@ apiInstance.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
-        if (error.response?.status === 401 && originalRequest && !originalRequest._retry && originalRequest.url !== '/auth/refresh') {
+        const url = originalRequest?.url || '';
+        const isAuthEndpoint =
+            url === '/auth/login' ||
+            url === '/auth/register' ||
+            url === '/auth/forgot-password' ||
+            url === '/auth/reset-password' ||
+            url === '/auth/reset-password/confirm' ||
+            url.startsWith('/auth/verify-email');
+
+        if (error.response?.status === 401 && originalRequest && !originalRequest._retry && url !== '/auth/refresh' && !isAuthEndpoint) {
             originalRequest._retry = true;
             try {
                 await apiInstance.post('/auth/refresh', null);
