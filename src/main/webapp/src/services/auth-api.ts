@@ -160,7 +160,9 @@ const getAvatar = async () => {
 
 const verifyEmail = async (token) => {
   try {
-    const res = await api.get(`/auth/verify-email?token=${token}`);
+    const res = await api.get('/auth/verify-email', {
+      params: { token },
+    });
     return {
       status: res.status,
       message: res.data.message || 'Xác thực email thành công',

@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 
 /**
@@ -61,7 +63,8 @@ public class EmailServiceImplement implements IEmailService {
             helper.setSubject("Reset Mật Khẩu - " + companyName);
 
             // Tạo context cho Thymeleaf template
-            String resetUrl = frontendBaseUrl + "/reset-password?token=" + resetToken;
+            String resetUrl = frontendBaseUrl + "/reset-password?token="
+                    + URLEncoder.encode(resetToken, StandardCharsets.UTF_8);
             Context context = new Context();
             context.setVariable("username", username);
             context.setVariable("resetUrl", resetUrl);
@@ -104,7 +107,8 @@ public class EmailServiceImplement implements IEmailService {
             helper.setSubject("Xác thực tài khoản - " + companyName);
 
             // Tạo URL xác thực (frontend URL)
-            String verificationUrl = frontendBaseUrl + "/verify-email?token=" + verificationToken;
+            String verificationUrl = frontendBaseUrl + "/verify-email?token="
+                    + URLEncoder.encode(verificationToken, StandardCharsets.UTF_8);
 
             // Tạo context cho Thymeleaf template
             Context context = new Context();

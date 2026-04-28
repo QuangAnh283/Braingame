@@ -62,7 +62,7 @@ public class User extends BaseEntity {
     @Column(name = "email_verified", nullable = false)
     private Boolean emailVerified = false;
 
-    @Column(name = "verification_token")
+    @Column(name = "verification_token", columnDefinition = "TEXT")
     private String verificationToken;
 
     @Column(name = "verification_token_expiry")

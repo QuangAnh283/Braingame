@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { FiCheckCircle, FiLoader, FiXCircle } from 'react-icons/fi';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import authApi from '../../services/auth-api';
@@ -9,6 +9,7 @@ const VerifyEmail = () => {
   const navigate = useNavigate();
   const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('');
+  const processedTokenRef = useRef<string | null>(null);
 
   const handleVerifyEmail = useCallback(async (token) => {
     try {
@@ -39,6 +40,12 @@ const VerifyEmail = () => {
       setMessage('Token xác thực không hợp lệ.');
       return;
     }
+
+    // Prevent duplicate verification calls in development StrictMode.
+    if (processedTokenRef.current === token) {
+      return;
+    }
+    processedTokenRef.current = token;
 
     handleVerifyEmail(token);
   }, [handleVerifyEmail, searchParams]);

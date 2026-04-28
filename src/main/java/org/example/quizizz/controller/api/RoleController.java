@@ -1,4 +1,4 @@
-﻿package org.example.quizizz.controller.api;
+package org.example.quizizz.controller.api;
 
 import org.example.quizizz.common.config.ApiResponse;
 import org.example.quizizz.common.constants.MessageCode;

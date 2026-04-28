@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import authStore from "./stores/auth-store";
@@ -8,7 +8,13 @@ import 'react-toastify/dist/ReactToastify.css';
 
 
 function App() {
+  const initializedRef = useRef(false);
+
   useEffect(() => {
+    if (initializedRef.current) {
+      return;
+    }
+    initializedRef.current = true;
     // Initialize auth khi app khởi động
     authStore.getState().initialize();
   }, []);

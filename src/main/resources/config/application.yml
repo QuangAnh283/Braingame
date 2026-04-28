@@ -66,7 +66,7 @@ spring:
   application:
     name: quizizz
   profiles:
-    active: ${SPRING_PROFILES_ACTIVE:prod}
+    active: ${SPRING_PROFILES_ACTIVE:dev}
     group:
       dev:
         - api-docs
@@ -104,8 +104,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
+    username: ${MAIL_USERNAME:dungtien3kk@gmail.com}
+    password: ${MAIL_PASSWORD:hwcr svbw drbu ifqi}
     properties:
       mail:
         smtp:
@@ -157,7 +157,7 @@ openai:
   model: gpt-4o-mini
 
 jwt:
-  secret-key: ${JWT_SECRET_KEY}
+  secret-key: ${JWT_SECRET_KEY:820370665f3840fdd097ddfef080afea0260702bc53f27901c61034467ab98a4d02962b5a058e6e297006f8849bf4686186f6f917f9471bcca4eaeca76c64cd4}
   access-expiration: ${JWT_ACCESS_EXPIRATION:86400000}
   refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
 

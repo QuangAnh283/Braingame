@@ -118,6 +118,7 @@ public class AuthServiceImplement implements IAuthService {
     @Override
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByUsername(request.getUsername())
+                .or(() -> userRepository.findByEmail(request.getUsername()))
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED.value(), MessageCode.USER_NOT_FOUND, "User not found"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
@@ -304,10 +305,24 @@ public class AuthServiceImplement implements IAuthService {
     @Override
     public boolean verifyEmail(String token) {
         try {
-            // Tìm user theo verification token
-            User user = userRepository.findByVerificationToken(token)
-                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND.value(),
-                            MessageCode.USER_NOT_FOUND, "Invalid verification token"));
+            User user = userRepository.findByVerificationToken(token).orElse(null);
+
+            // Handle duplicate verification calls (e.g. React StrictMode/dev or link prefetchers).
+            // If token is valid and user is already verified, treat as success.
+            if (user == null && jwtUtil.validateToken(token)) {
+                Long userIdFromToken = jwtUtil.getUserIdFromToken(token);
+                if (userIdFromToken != null) {
+                    User alreadyVerifiedUser = userRepository.findById(userIdFromToken).orElse(null);
+                    if (alreadyVerifiedUser != null && Boolean.TRUE.equals(alreadyVerifiedUser.getEmailVerified())) {
+                        return true;
+                    }
+                }
+            }
+
+            if (user == null) {
+                throw new ApiException(HttpStatus.NOT_FOUND.value(),
+                        MessageCode.USER_NOT_FOUND, "Invalid verification token");
+            }
 
             if (user.getVerificationToken() != null && user.getVerificationToken().startsWith(RESET_TOKEN_PREFIX)) {
                 throw new ApiException(HttpStatus.BAD_REQUEST.value(),
@@ -320,10 +335,9 @@ public class AuthServiceImplement implements IAuthService {
                         MessageCode.AUTH_INVALID_TOKEN, "Verification token has expired");
             }
 
-            // Kiểm tra email đã được xác thực chưa
-            if (user.getEmailVerified()) {
-                throw new ApiException(HttpStatus.BAD_REQUEST.value(),
-                        MessageCode.USER_ALREADY_EXISTS, "Email already verified");
+            // Nếu email đã verify rồi thì coi như thành công (idempotent)
+            if (Boolean.TRUE.equals(user.getEmailVerified())) {
+                return true;
             }
 
             // Cập nhật trạng thái xác thực

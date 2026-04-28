@@ -1,4 +1,4 @@
-﻿package org.example.quizizz.controller.api;
+package org.example.quizizz.controller.api;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
