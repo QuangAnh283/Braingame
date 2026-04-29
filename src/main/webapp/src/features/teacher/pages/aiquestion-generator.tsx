@@ -149,7 +149,7 @@ const AIQuestionGenerator = () => {
                                 onChange={(e) => {
                                     setSelectedExam(e.target.value);
                                     if (e.target.value) {
-                                        const exam = filteredExams.find(e => e.id === parseInt(e.target.value));
+                                        const exam = filteredExams.find(item => item.id === parseInt(e.target.value));
                                         toast.success(`Đã chọn bộ đề: ${exam?.title || ''}`);
                                     }
                                 }}

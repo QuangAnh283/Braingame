@@ -3,6 +3,8 @@ package org.example.quizizz.service.Implement;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.example.quizizz.common.constants.MessageCode;
+import org.example.quizizz.common.exception.ApiException;
 import org.example.quizizz.model.dto.ai.*;
 import org.example.quizizz.model.dto.answer.CreateAnswerRequest;
 import org.example.quizizz.model.dto.answer.CreateBulkAnswersRequest;
@@ -15,6 +17,7 @@ import org.example.quizizz.service.Interface.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
@@ -41,34 +44,46 @@ public class AIServiceImplement implements IAIService {
     @Override
     public AIGenerateResponse generateQuestionsFromNaturalLanguage(Long examId, String userPrompt) {
         log.info("Generating questions for exam {} with prompt: {}", examId, userPrompt);
-        
+
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new ApiException(503, MessageCode.INTERNAL_ERROR,
+                    "AI service chưa được cấu hình (thiếu GEMINI_API_KEY).");
+        }
+
         try {
             var exam = examService.getById(examId);
             TopicResponse topic = topicService.getById(exam.getTopicId());
             String systemPrompt = buildSystemPrompt(topic, userPrompt);
-            
+
             String requestBody = buildGeminiRequest(systemPrompt, userPrompt);
-            
+
             String response = openaiRestClient.post()
                     .uri("/models/" + model + ":generateContent?key=" + apiKey)
                     .header("Content-Type", "application/json")
                     .body(requestBody)
                     .retrieve()
                     .body(String.class);
-            
+
             String jsonResponse = parseGeminiResponse(response);
             log.debug("AI Response: {}", jsonResponse);
-            
+
             List<QuestionWithAnswersResponse> questions = parseAndSaveQuestions(jsonResponse, examId);
-            
+
             return AIGenerateResponse.builder()
                 .totalGenerated(questions.size())
                 .questions(questions)
                 .message("Đã tạo thành công " + questions.size() + " câu hỏi")
                 .build();
+        } catch (ApiException e) {
+            throw e;
+        } catch (HttpClientErrorException e) {
+            log.error("AI provider rejected request: status={}, body={}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new ApiException(502, MessageCode.INTERNAL_ERROR,
+                    "AI provider từ chối yêu cầu (" + e.getStatusCode() + "). Vui lòng kiểm tra API key hoặc liên hệ admin.");
         } catch (Exception e) {
             log.error("Error generating questions: {}", e.getMessage(), e);
-            throw new RuntimeException("Không thể tạo câu hỏi: " + e.getMessage(), e);
+            throw new ApiException(502, MessageCode.INTERNAL_ERROR,
+                    "Không thể tạo câu hỏi từ AI: " + e.getMessage());
         }
     }
     
@@ -159,6 +174,17 @@ public class AIServiceImplement implements IAIService {
             - Ngôn ngữ: Tiếng Việt, phù hợp học sinh
             - Nếu không nói rõ độ khó, tạo câu hỏi trung bình
             - Nếu không nói rõ số lượng, tạo 10 câu
+
+            ### QUY TẮC ĐỊNH DẠNG TOÁN HỌC BẮT BUỘC (STRICT RULE):
+            1. CẤM TUYỆT ĐỐI: Không sử dụng ký tự $ hoặc các cú pháp LaTeX (ví dụ: \\frac, \\sqrt, \\wedge).
+            2. ĐỊNH DẠNG CHUẨN: Sử dụng 100%% Plain Text kết hợp Unicode:
+               - Số mũ: Dùng ký tự Unicode (x², y³, n⁴). Nếu không có Unicode phù hợp, dùng dấu ^ (x^10).
+               - Toán tử: Dùng các ký tự chuẩn: ×, ÷, √, ±, ≤, ≥, ≠, π.
+               - Phân số: Dùng gạch chéo (a/b).
+            3. KIỂM TRA LẠI: Đảm bảo toàn bộ câu hỏi và 4 lựa chọn không chứa bất kỳ dấu $ nào.
+
+            Ví dụ SAI: Khai triển biểu thức $(2x + 3y)^2$
+            Ví dụ ĐÚNG: Khai triển biểu thức (2x + 3y)²
             """.formatted(topic.getName(), topic.getDescription(), userPrompt, topic.getName());
     }
     

@@ -57,7 +57,7 @@ minio:
   secret-key: ${MINIO_ROOT_PASSWORD:ypLLX2KSjitypckv}
 
 gemini:
-  api-key: ${GEMINI_API_KEY:AIzaSyBp7UNeC9t1sRlr8EOmEDk_EtIwOp-f_oU}
+  api-key: ${GEMINI_API_KEY:}
   base-url: https://generativelanguage.googleapis.com/v1beta
   model: gemini-flash-latest
 

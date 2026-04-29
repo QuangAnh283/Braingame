@@ -37,9 +37,6 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       global: 'globalThis'
-    },
-    optimizeDeps: {
-      include: ['sockjs-client', '@stomp/stompjs']
     }
   };
 });
