@@ -8,18 +8,16 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class AIConfig {
 
-    @Value("${openai.api-key}")
+    @Value("${gemini.api-key}")
     private String apiKey;
 
-    @Value("${openai.base-url}")
+    @Value("${gemini.base-url}")
     private String baseUrl;
 
     @Bean
     public RestClient openaiRestClient() {
         return RestClient.builder()
                 .baseUrl(baseUrl)
-                .defaultHeader("Authorization", "Bearer " + apiKey)
-                .defaultHeader("Content-Type", "application/json")
                 .build();
     }
 }

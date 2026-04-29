@@ -77,14 +77,7 @@ const authStore = create<AuthState>((set, get) => ({
     if (get().hasInitialized || get().isLoading) return;
     set({ isLoading: true, error: null });
     try {
-      let response;
-      try {
-        response = await authApi.getUser();
-      } catch {
-        await authApi.refreshToken();
-        response = await authApi.getUser();
-      }
-
+      const response = await authApi.getUser();
       const user = normalizeUser(response.data);
       set({
         user,

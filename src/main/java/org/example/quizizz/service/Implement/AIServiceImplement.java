@@ -32,48 +32,74 @@ public class AIServiceImplement implements IAIService {
     private final IAnswerService answerService;
     private final ObjectMapper objectMapper;
     
-    @Value("${openai.model}")
+    @Value("${gemini.model}")
     private String model;
+    
+    @Value("${gemini.api-key}")
+    private String apiKey;
     
     @Override
     public AIGenerateResponse generateQuestionsFromNaturalLanguage(Long examId, String userPrompt) {
         log.info("Generating questions for exam {} with prompt: {}", examId, userPrompt);
         
-        var exam = examService.getById(examId);
-        TopicResponse topic = topicService.getById(exam.getTopicId());
-        String systemPrompt = buildSystemPrompt(topic, userPrompt);
-        
-        OpenAIChatRequest request = OpenAIChatRequest.builder()
-                .model(model)
-                .temperature(0.7)
-                .messages(List.of(
-                        OpenAIChatRequest.Message.builder()
-                                .role("system")
-                                .content(systemPrompt)
-                                .build(),
-                        OpenAIChatRequest.Message.builder()
-                                .role("user")
-                                .content(userPrompt)
-                                .build()
-                ))
+        try {
+            var exam = examService.getById(examId);
+            TopicResponse topic = topicService.getById(exam.getTopicId());
+            String systemPrompt = buildSystemPrompt(topic, userPrompt);
+            
+            String requestBody = buildGeminiRequest(systemPrompt, userPrompt);
+            
+            String response = openaiRestClient.post()
+                    .uri("/models/" + model + ":generateContent?key=" + apiKey)
+                    .header("Content-Type", "application/json")
+                    .body(requestBody)
+                    .retrieve()
+                    .body(String.class);
+            
+            String jsonResponse = parseGeminiResponse(response);
+            log.debug("AI Response: {}", jsonResponse);
+            
+            List<QuestionWithAnswersResponse> questions = parseAndSaveQuestions(jsonResponse, examId);
+            
+            return AIGenerateResponse.builder()
+                .totalGenerated(questions.size())
+                .questions(questions)
+                .message("Đã tạo thành công " + questions.size() + " câu hỏi")
                 .build();
-        
-        OpenAIChatResponse response = openaiRestClient.post()
-                .uri("/chat/completions")
-                .body(request)
-                .retrieve()
-                .body(OpenAIChatResponse.class);
-        
-        String jsonResponse = response.getChoices().get(0).getMessage().getContent();
-        log.debug("AI Response: {}", jsonResponse);
-        
-        List<QuestionWithAnswersResponse> questions = parseAndSaveQuestions(jsonResponse, examId);
-        
-        return AIGenerateResponse.builder()
-            .totalGenerated(questions.size())
-            .questions(questions)
-            .message("Đã tạo thành công " + questions.size() + " câu hỏi")
-            .build();
+        } catch (Exception e) {
+            log.error("Error generating questions: {}", e.getMessage(), e);
+            throw new RuntimeException("Không thể tạo câu hỏi: " + e.getMessage(), e);
+        }
+    }
+    
+    private String buildGeminiRequest(String systemPrompt, String userPrompt) {
+        try {
+            String combinedPrompt = systemPrompt + "\n\n" + userPrompt;
+            return """
+                {
+                  "contents": [{
+                    "parts": [{
+                      "text": %s
+                    }]
+                  }],
+                  "generationConfig": {
+                    "temperature": 0.7,
+                    "maxOutputTokens": 8192
+                  }
+                }
+                """.formatted(objectMapper.writeValueAsString(combinedPrompt));
+        } catch (Exception e) {
+            throw new RuntimeException("Error building Gemini request", e);
+        }
+    }
+    
+    private String parseGeminiResponse(String response) {
+        try {
+            var jsonNode = objectMapper.readTree(response);
+            return jsonNode.at("/candidates/0/content/parts/0/text").asText();
+        } catch (Exception e) {
+            throw new RuntimeException("Error parsing Gemini response", e);
+        }
     }
     
     /**

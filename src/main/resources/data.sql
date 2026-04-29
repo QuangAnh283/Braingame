@@ -65,7 +65,8 @@ INSERT INTO role_permissions (role_id, permission_id, created_at, updated_at)
 SELECT r.id, p.id, NOW(), NOW()
 FROM roles r
 JOIN permissions p ON p.permission_name IN
-  ('user:manage_profile','room:manage','room:join','room:leave','room:kick_player',
+  ('user:manage_profile','topic:manage','question:manage',
+   'room:manage','room:join','room:leave','room:kick_player',
    'room:invite','game:start','game:answer','game:view_score','rank:view')
 WHERE r.role_name = 'HOST'
 ON CONFLICT (role_id, permission_id) DO NOTHING;

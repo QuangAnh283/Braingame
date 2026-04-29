@@ -151,10 +151,10 @@ logging:
 info:
   display-ribbon-on-profiles: dev
 
-openai:
-  api-key: ${OPENAI_API_KEY:${KEY:}}
-  base-url: https://api.openai.com/v1
-  model: gpt-4o-mini
+gemini:
+  api-key: ${GEMINI_API_KEY:${KEY:}}
+  base-url: https://generativelanguage.googleapis.com/v1beta
+  model: gemini-flash-latest
 
 jwt:
   secret-key: ${JWT_SECRET_KEY:820370665f3840fdd097ddfef080afea0260702bc53f27901c61034467ab98a4d02962b5a058e6e297006f8849bf4686186f6f917f9471bcca4eaeca76c64cd4}

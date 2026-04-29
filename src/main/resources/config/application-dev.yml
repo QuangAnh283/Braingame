@@ -56,5 +56,10 @@ minio:
   access-key: ${MINIO_ROOT_USER:quizizz_minio}
   secret-key: ${MINIO_ROOT_PASSWORD:ypLLX2KSjitypckv}
 
+gemini:
+  api-key: ${GEMINI_API_KEY:AIzaSyBp7UNeC9t1sRlr8EOmEDk_EtIwOp-f_oU}
+  base-url: https://generativelanguage.googleapis.com/v1beta
+  model: gemini-flash-latest
+
 jwt:
   secret-key: ${JWT_SECRET_KEY:820370665f3840fdd097ddfef080afea0260702bc53f27901c61034467ab98a4d02962b5a058e6e297006f8849bf4686186f6f917f9471bcca4eaeca76c64cd4}

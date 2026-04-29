@@ -141,9 +141,10 @@ public class DataInitializer implements CommandLineRunner {
                 "user:manage_profile", "room:join", "room:leave", "game:answer", "game:view_score", "rank:view"
         ));
 
-        // HOST permissions (includes PLAYER + host-specific)
+        // HOST permissions (includes PLAYER + host-specific + teacher content management)
         assignPermissionsToRole(hostRole, Arrays.asList(
-                "user:manage_profile", "room:manage", "room:join", "room:leave", "room:kick_player",
+                "user:manage_profile", "topic:manage", "question:manage",
+                "room:manage", "room:join", "room:leave", "room:kick_player",
                 "room:invite", "game:start", "game:answer", "game:view_score", "rank:view"
         ));
 
