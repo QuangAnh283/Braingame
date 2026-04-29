@@ -179,11 +179,15 @@ public class UserServiceImplement implements IUserService {
     public void deleteUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND.value(), MessageCode.USER_NOT_FOUND, "User not found"));
-        
+
         if ("1".equals(user.getSystemFlag())) {
             throw new ApiException(HttpStatus.FORBIDDEN.value(), MessageCode.OPERATION_NOT_ALLOWED, "Cannot delete system user");
         }
-        
-        userRepository.delete(user);
+
+        // Soft delete: clear role mappings then mark user as deleted (avoid FK 409 conflicts)
+        userRoleRepository.deleteByUserId(id);
+        user.setDeleted(true);
+        user.setOnline(false);
+        userRepository.save(user);
     }
 }

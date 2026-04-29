@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,6 +21,7 @@ import java.util.List;
         @Index(name = "idx_users_online", columnList = "online")
     }
 )
+@SQLRestriction("is_delete = false")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

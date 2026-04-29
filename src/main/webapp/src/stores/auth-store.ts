@@ -14,6 +14,7 @@ type AuthState = {
   user: AuthUser;
   isAuthenticated: boolean;
   isLoading: boolean;
+  hasInitialized: boolean;
   error: string | null;
   typeAccount: UserRole;
   setUser: (_user: AuthUser) => void;
@@ -41,10 +42,11 @@ const normalizeUser = (data: any): AuthUser => {
 const errorMessage = (error: any, fallback: string) =>
   error?.response?.data?.message || error?.message || fallback;
 
-const authStore = create<AuthState>((set) => ({
+const authStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
+  hasInitialized: false,
   error: null,
   typeAccount: null,
 
@@ -72,6 +74,7 @@ const authStore = create<AuthState>((set) => ({
   setError: (error) => set({ error }),
 
   initialize: async () => {
+    if (get().hasInitialized || get().isLoading) return;
     set({ isLoading: true, error: null });
     try {
       let response;
@@ -88,10 +91,11 @@ const authStore = create<AuthState>((set) => ({
         isAuthenticated: !!user,
         typeAccount: user?.typeAccount || null,
         isLoading: false,
+        hasInitialized: true,
         error: null,
       });
     } catch {
-      set({ user: null, isAuthenticated: false, typeAccount: null, isLoading: false });
+      set({ user: null, isAuthenticated: false, typeAccount: null, isLoading: false, hasInitialized: true });
     }
   },
 

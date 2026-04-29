@@ -10,6 +10,7 @@ import {
 } from 'react-icons/fi';
 import PopupNotification from '@shared/components/PopupNotification';
 import { usePopup } from '@shared/hooks/use-popup';
+import { useDebounce } from '@shared/hooks/use-debounce';
 import adminApi from '../services/admin-api';
 import '../../../styles/features/teacher/management.css';
 
@@ -27,10 +28,12 @@ const TopicManagement = () => {
     const [totalPages, setTotalPages] = useState(0);
     const [totalElements, setTotalElements] = useState(0);
 
+    const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
     const loadTopics = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await adminApi.searchTopics(searchTerm, currentPage, 10);
+            const response = await adminApi.searchTopics(debouncedSearchTerm, currentPage, 10);
             if (response.data) {
                 setTopics(response.data.content || []);
                 setTotalPages(response.data.totalPages || 0);
@@ -42,13 +45,10 @@ const TopicManagement = () => {
         } finally {
             setLoading(false);
         }
-    }, [currentPage, searchTerm, showError]);
+    }, [currentPage, debouncedSearchTerm, showError]);
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            loadTopics();
-        }, 300);
-        return () => clearTimeout(timer);
+        loadTopics();
     }, [loadTopics]);
 
     useEffect(() => {

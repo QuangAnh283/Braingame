@@ -11,6 +11,7 @@ import {
 import PopupNotification from '@shared/components/PopupNotification';
 import adminApi from '../services/admin-api';
 import { usePopup } from '@shared/hooks/use-popup';
+import { useDebounce } from '@shared/hooks/use-debounce';
 import '../../../styles/features/teacher/management.css';
 
 const PermissionManagement = () => {
@@ -25,13 +26,15 @@ const PermissionManagement = () => {
     const [currentPage, setCurrentPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
     const [totalElements, setTotalElements] = useState(0);
-    
+
+    const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
     const { popup, showSuccess, showError, showConfirm, hidePopup } = usePopup();
 
     const loadPermissions = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await adminApi.searchPermissions(searchTerm, currentPage, 10);
+            const response = await adminApi.searchPermissions(debouncedSearchTerm, currentPage, 10);
             if (response.data) {
                 setPermissions(response.data.content || []);
                 setTotalPages(response.data.totalPages || 0);
@@ -43,13 +46,10 @@ const PermissionManagement = () => {
         } finally {
             setLoading(false);
         }
-    }, [currentPage, searchTerm, showError]);
+    }, [currentPage, debouncedSearchTerm, showError]);
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            loadPermissions();
-        }, 300);
-        return () => clearTimeout(timer);
+        loadPermissions();
     }, [loadPermissions]);
 
     useEffect(() => {

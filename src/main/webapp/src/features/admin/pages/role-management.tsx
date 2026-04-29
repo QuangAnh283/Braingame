@@ -13,6 +13,7 @@ import {
 import PopupNotification from '@shared/components/PopupNotification';
 import adminApi from '../services/admin-api';
 import { usePopup } from '@shared/hooks/use-popup';
+import { useDebounce } from '@shared/hooks/use-debounce';
 import '../../../styles/features/teacher/management.css';
 
 const RoleManagement = () => {
@@ -31,7 +32,9 @@ const RoleManagement = () => {
     const [currentPage, setCurrentPage] = useState(0);
     const [totalPages, setTotalPages] = useState(0);
     const [totalElements, setTotalElements] = useState(0);
-    
+
+    const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
     const { popup, showSuccess, showError, showConfirm, hidePopup } = usePopup();
 
     const loadPermissions = useCallback(async () => {
@@ -46,7 +49,7 @@ const RoleManagement = () => {
     const loadRoles = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await adminApi.searchRoles(searchTerm, currentPage, 10);
+            const response = await adminApi.searchRoles(debouncedSearchTerm, currentPage, 10);
             if (response.data) {
                 setRoles(response.data.content || []);
                 setTotalPages(response.data.totalPages || 0);
@@ -58,7 +61,7 @@ const RoleManagement = () => {
         } finally {
             setLoading(false);
         }
-    }, [currentPage, searchTerm, showError]);
+    }, [currentPage, debouncedSearchTerm, showError]);
 
     useEffect(() => {
         loadPermissions();
@@ -73,10 +76,7 @@ const RoleManagement = () => {
     }, [dropdownOpen]);
 
     useEffect(() => {
-        const timer = setTimeout(() => {
-            loadRoles();
-        }, 300);
-        return () => clearTimeout(timer);
+        loadRoles();
     }, [loadRoles]);
 
     const loadRolePermissions = async (roleId: number) => {

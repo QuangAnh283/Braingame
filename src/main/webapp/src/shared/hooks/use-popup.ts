@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 type PopupState = {
     isVisible: boolean;
@@ -36,7 +36,7 @@ export const usePopup = () => {
         cancelText: 'Hủy'
     });
 
-    const showPopup = ({
+    const showPopup = useCallback(({
         type = 'info',
         title,
         message,
@@ -52,35 +52,41 @@ export const usePopup = () => {
             title,
             message,
             showConfirm,
-            onConfirm,
-            onCancel,
+            onConfirm: onConfirm ?? null,
+            onCancel: onCancel ?? null,
             confirmText,
             cancelText
         });
-    };
+    }, []);
 
-    const hidePopup = () => {
+    const hidePopup = useCallback(() => {
         setPopup(prev => ({ ...prev, isVisible: false }));
-    };
+    }, []);
 
     // Convenience methods
-    const showSuccess = (message, title = 'Thành công') => {
+    const showSuccess = useCallback((message: string, title = 'Thành công') => {
         showPopup({ type: 'success', title, message });
-    };
+    }, [showPopup]);
 
-    const showError = (message, title = 'Lỗi') => {
+    const showError = useCallback((message: string, title = 'Lỗi') => {
         showPopup({ type: 'error', title, message });
-    };
+    }, [showPopup]);
 
-    const showWarning = (message, title = 'Cảnh báo') => {
+    const showWarning = useCallback((message: string, title = 'Cảnh báo') => {
         showPopup({ type: 'warning', title, message });
-    };
+    }, [showPopup]);
 
-    const showInfo = (message, title = 'Thông tin') => {
+    const showInfo = useCallback((message: string, title = 'Thông tin') => {
         showPopup({ type: 'info', title, message });
-    };
+    }, [showPopup]);
 
-    const showConfirm = (message, onConfirm, title = 'Xác nhận', confirmText = 'Xác nhận', cancelText = 'Hủy') => {
+    const showConfirm = useCallback((
+        message: string,
+        onConfirm: () => void,
+        title = 'Xác nhận',
+        confirmText = 'Xác nhận',
+        cancelText = 'Hủy'
+    ) => {
         showPopup({
             type: 'warning',
             title,
@@ -90,7 +96,7 @@ export const usePopup = () => {
             confirmText,
             cancelText
         });
-    };
+    }, [showPopup]);
 
     return {
         popup,

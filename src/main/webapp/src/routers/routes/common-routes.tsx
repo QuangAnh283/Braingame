@@ -1,16 +1,12 @@
 // Routes dùng chung cho tất cả users (không yêu cầu role cụ thể)
+// Lưu ý: Đã được bảo vệ tự động bởi <ProtectedRoute /> ở layer layout trong routers/index.tsx
 
 import Profile from "../../pages/profile";
-import ProtectedRoute from "../guards/protected-route";
 
 const commonRoutes = [
   {
     path: "profile",
-    element: (
-      <ProtectedRoute>
-        <Profile />
-      </ProtectedRoute>
-    ),
+    element: <Profile />,
   },
 ];
 
