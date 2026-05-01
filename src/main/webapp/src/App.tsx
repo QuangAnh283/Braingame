@@ -4,6 +4,7 @@ import { ToastContainer } from "react-toastify";
 import authStore from "./stores/auth-store";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import ScrollToTop from "./components/ScrollToTop";
 import 'react-toastify/dist/ReactToastify.css';
 
 
@@ -21,6 +22,7 @@ function App() {
 
   return (
     <>
+      <ScrollToTop />
       <Header />
       <Outlet />
       <Footer />

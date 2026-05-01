@@ -2,6 +2,6 @@ package org.example.quizizz.common.constants;
 
 public enum RoleCode {
     ADMIN,
-    HOST,
+    TEACHER,
     PLAYER
 }

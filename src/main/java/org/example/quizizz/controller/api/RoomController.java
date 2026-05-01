@@ -208,6 +208,14 @@ public class RoomController {
     }
 
     private Long getUserIdFromRequest(HttpServletRequest request) {
+        // Ưu tiên Authentication trong SecurityContext (do JwtAuthenticationFilter
+        // đã giải mã token từ cookie/header và set sẵn). Đảm bảo cookie-based auth chạy được.
+        org.springframework.security.core.Authentication auth =
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof Long) {
+            return (Long) auth.getPrincipal();
+        }
+
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);

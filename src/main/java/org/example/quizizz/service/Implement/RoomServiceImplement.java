@@ -61,8 +61,8 @@ public class RoomServiceImplement implements IRoomService {
      */
     @Override
     public RoomResponse createRoom(CreateRoomRequest request, Long userId) {
-        User owner = requireRoomManager(userId);
-        Exam exam = validateRoomConfiguration(
+        requireExistingUser(userId);
+        validateRoomConfiguration(
                 request.getExamId(),
                 request.getTopicId(),
                 request.getRoomMode(),
@@ -70,7 +70,6 @@ public class RoomServiceImplement implements IRoomService {
                 request.getQuestionCount(),
                 request.getCountdownTime()
         );
-        resourceOwnershipService.assertCanManageExam(exam.getId(), userId, owner.getTypeAccount());
 
         Room room = roomMapper.toEntity(request);
         room.setOwnerId(userId);
@@ -464,13 +463,11 @@ public class RoomServiceImplement implements IRoomService {
         }
     }
 
-    private User requireRoomManager(Long userId) {
-        User user = userRepository.findById(userId)
+    private User requireExistingUser(Long userId) {
+        // Bất kỳ user đã đăng nhập đều được tạo phòng. Authorization (filter chặn unauthenticated)
+        // đã thực hiện ở JwtAuthenticationFilter — ở đây chỉ cần xác nhận user tồn tại để set ownerId.
+        return userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(MessageCode.USER_NOT_FOUND));
-        if (!"HOST".equalsIgnoreCase(user.getTypeAccount()) && !"ADMIN".equalsIgnoreCase(user.getTypeAccount())) {
-            throw new ApiException(HttpStatus.FORBIDDEN.value(), MessageCode.ROOM_PERMISSION_DENIED, "Only hosts can create rooms");
-        }
-        return user;
     }
 
     private Exam validateRoomConfiguration(Long examId,

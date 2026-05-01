@@ -86,17 +86,17 @@ public class ExamController {
     }
 
     @GetMapping("/topic/{topicId}")
-    @Operation(summary = "Lấy đề thi theo chủ đề", description = "Lấy danh sách đề thi thuộc một chủ đề (giáo viên chỉ xem của mình)")
-    public ResponseEntity<ApiResponse<List<ExamResponse>>> getByTopicId(@PathVariable Long topicId, Authentication authentication) {
-        Long teacherId = (Long) authentication.getPrincipal();
-        JwtAuthenticationToken auth = (JwtAuthenticationToken) authentication;
-        String typeAccount = auth.getTypeAccount();
-        
+    @Operation(summary = "Lấy đề thi theo chủ đề",
+            description = "Player/Admin: tất cả đề của topic (để chọn khi tạo phòng). Teacher (HOST): chỉ đề của chính mình.")
+    public ResponseEntity<ApiResponse<List<ExamResponse>>> getByTopicId(@PathVariable Long topicId,
+                                                                        Authentication authentication) {
         List<ExamResponse> response = examService.getByTopicId(topicId);
-        if (!resourceOwnershipService.isAdmin(typeAccount)) {
+        String typeAccount = ((JwtAuthenticationToken) authentication).getTypeAccount();
+        if (resourceOwnershipService.isHost(typeAccount)) {
+            Long teacherId = (Long) authentication.getPrincipal();
             response = response.stream()
-                .filter(exam -> exam.getTeacherId() != null && exam.getTeacherId().equals(teacherId))
-                .collect(java.util.stream.Collectors.toList());
+                    .filter(exam -> exam.getTeacherId() != null && exam.getTeacherId().equals(teacherId))
+                    .collect(java.util.stream.Collectors.toList());
         }
         return ResponseEntity.ok(ApiResponse.success(MessageCode.SUCCESS, response));
     }

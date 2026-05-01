@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import authApi from '../services/auth-api';
 
-type UserRole = 'PLAYER' | 'TEACHER' | 'ADMIN' | null;
+type UserRole = 'PLAYER' | 'TEACHER' | 'HOST' | 'ADMIN' | null;
 
 type AuthUser = {
   id?: number | string;
@@ -14,7 +14,6 @@ type AuthState = {
   user: AuthUser;
   isAuthenticated: boolean;
   isLoading: boolean;
-  hasInitialized: boolean;
   error: string | null;
   typeAccount: UserRole;
   setUser: (_user: AuthUser) => void;
@@ -28,6 +27,7 @@ type AuthState = {
 
 const toUiRole = (role?: string | null): UserRole => {
   if (!role) return null;
+  if (role === 'HOST') return 'TEACHER';
   if (role === 'ADMIN' || role === 'PLAYER' || role === 'TEACHER') return role;
   return null;
 };
@@ -41,11 +41,10 @@ const normalizeUser = (data: any): AuthUser => {
 const errorMessage = (error: any, fallback: string) =>
   error?.response?.data?.message || error?.message || fallback;
 
-const authStore = create<AuthState>((set, get) => ({
+const authStore = create<AuthState>((set) => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
-  hasInitialized: false,
   error: null,
   typeAccount: null,
 
@@ -73,21 +72,26 @@ const authStore = create<AuthState>((set, get) => ({
   setError: (error) => set({ error }),
 
   initialize: async () => {
-    if (get().hasInitialized || get().isLoading) return;
     set({ isLoading: true, error: null });
     try {
-      const response = await authApi.getUser();
+      let response;
+      try {
+        response = await authApi.getUser();
+      } catch {
+        await authApi.refreshToken();
+        response = await authApi.getUser();
+      }
+
       const user = normalizeUser(response.data);
       set({
         user,
         isAuthenticated: !!user,
         typeAccount: user?.typeAccount || null,
         isLoading: false,
-        hasInitialized: true,
         error: null,
       });
     } catch {
-      set({ user: null, isAuthenticated: false, typeAccount: null, isLoading: false, hasInitialized: true });
+      set({ user: null, isAuthenticated: false, typeAccount: null, isLoading: false });
     }
   },
 

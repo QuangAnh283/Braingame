@@ -74,6 +74,9 @@ spring:
     allow-circular-references: true
   jmx:
     enabled: false
+  sql:
+    init:
+      mode: never
   data:
     jpa:
       repositories:

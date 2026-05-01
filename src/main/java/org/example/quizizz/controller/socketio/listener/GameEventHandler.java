@@ -1,5 +1,6 @@
 package org.example.quizizz.controller.socketio.listener;
 
+import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
 import org.example.quizizz.controller.socketio.broadcast.GameSocketFacade;
 import org.example.quizizz.controller.socketio.session.SessionManager;
@@ -16,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 
 @Component
@@ -67,34 +70,39 @@ public class GameEventHandler {
 
                 Room room = roomRepository.findById(data.getRoomId()).orElseThrow();
 
-                // Lấy câu hỏi đầu tiên
-                NextQuestionResponse firstQuestion = gameService.getNextQuestion(data.getRoomId());
+                // Per-player flow: broadcast tín hiệu game-started (không kèm câu hỏi),
+                // sau đó gửi câu hỏi đầu tiên RIÊNG cho từng player với thứ tự shuffle
+                // theo userId. Player A và B sẽ thấy câu hỏi/đáp án khác thứ tự.
+                gameSocketFacade.notifyGameStarted(room.getRoomCode(), data.getRoomId(), null);
 
-                if (firstQuestion != null) {
-                    log.info("First question loaded: {}", firstQuestion.getQuestionText());
-
-                    // Broadcast game bắt đầu đến tất cả players
-                    gameSocketFacade.notifyGameStarted(room.getRoomCode(), data.getRoomId(), firstQuestion);
-
-                    if (ackRequest.isAckRequested()) {
-                        ackRequest.sendAckData(Map.of(
-                                "success", true,
-                                "roomId", data.getRoomId(),
-                                "question", firstQuestion
-                        ));
+                Collection<SocketIOClient> roomClients =
+                        server.getRoomOperations("room-" + room.getRoomCode()).getClients();
+                int sentCount = 0;
+                for (SocketIOClient roomClient : roomClients) {
+                    Long playerId = sessionManager.getUserId(roomClient.getSessionId().toString());
+                    if (playerId == null) continue;
+                    NextQuestionResponse personalQ =
+                            gameService.getNextQuestionForPlayer(data.getRoomId(), playerId);
+                    if (personalQ != null) {
+                        Map<String, Object> payload = new HashMap<>();
+                        payload.put("timestamp", System.currentTimeMillis());
+                        payload.put("question", personalQ);
+                        roomClient.sendEvent("next-question", payload);
+                        sentCount++;
                     }
-
-                    // Bắt đầu đếm ngược server-authoritative theo roomCode
-                    gameTimerService.startGameTimer(data.getRoomId(), room.getRoomCode(), firstQuestion.getTimeLimit());
-                } else {
-                    if (ackRequest.isAckRequested()) {
-                        ackRequest.sendAckData(Map.of(
-                                "success", false,
-                                "message", "No questions available"
-                        ));
-                    }
-                    client.sendEvent("error", Map.of("message", "No questions available"));
                 }
+
+                if (ackRequest.isAckRequested()) {
+                    ackRequest.sendAckData(Map.of(
+                            "success", true,
+                            "roomId", data.getRoomId(),
+                            "playersStarted", sentCount
+                    ));
+                }
+
+                // Vẫn start shared timer để có countdown-tick chung; expire sẽ chỉ check end-game
+                // nếu tất cả player đã xong (xem GameServiceImplement.handleTimerFinished).
+                gameTimerService.startGameTimer(data.getRoomId(), room.getRoomCode(), room.getCountdownTime());
 
             } catch (Exception e) {
                 if (ackRequest.isAckRequested()) {
@@ -131,6 +139,7 @@ public class GameEventHandler {
                 AnswerSubmitRequest request = new AnswerSubmitRequest();
                 request.setQuestionId(data.getQuestionId());
                 request.setAnswerId(answerId);
+                request.setTimeTaken(data.getTimeTaken());
 
                 // Gửi đáp án và nhận kết quả
                 QuestionResultResponse result = gameService.submitAnswer(data.getRoomId(), userId, request);
@@ -138,32 +147,37 @@ public class GameEventHandler {
                 log.info("✅ Answer result for user {}: isCorrect={}, score={}, streak={}",
                     userId, result.getIsCorrect(), result.getScore(), result.getStreak());
 
+                // Gửi kết quả câu trả lời cho riêng player (popup +điểm)
+                NextQuestionResponse nextForPlayer =
+                        gameService.getNextQuestionForPlayer(data.getRoomId(), userId);
                 client.sendEvent("answer-submitted", Map.of(
                         "result", result,
-                        "hasNextQuestion", false,
+                        "hasNextQuestion", nextForPlayer != null,
+                        "completed", nextForPlayer == null,
                         "timestamp", System.currentTimeMillis()
                 ));
 
-                boolean allCompleted = gameService.haveAllPlayersCompleted(data.getRoomId());
-                log.info("🎯 Room {}: All players completed? {}", data.getRoomId(), allCompleted);
-
-                if (allCompleted) {
-                    log.info("🎉 All players completed! Ending game for room {}", data.getRoomId());
-
-                    // Dừng timer hiện tại để tránh kết thúc game trùng do time-up event.
-                    gameTimerService.stopGameTimer(data.getRoomId());
-
-                    // Tính toán kết quả cuối cùng
-                    GameOverResponse gameResult = gameService.endGame(data.getRoomId());
-
-                    Room room = roomRepository.findById(data.getRoomId()).orElseThrow();
-                    // Broadcast kết quả đến tất cả players
-                    gameSocketFacade.notifyGameFinished(room.getRoomCode(), gameResult);
+                // Per-player advance: gửi câu hỏi tiếp theo RIÊNG cho player này
+                // → màn hình player chuyển sang câu mới sau khi popup đóng.
+                if (nextForPlayer != null) {
+                    Map<String, Object> nextPayload = new HashMap<>();
+                    nextPayload.put("timestamp", System.currentTimeMillis());
+                    nextPayload.put("question", nextForPlayer);
+                    client.sendEvent("next-question", nextPayload);
                 }
 
                 Room room = roomRepository.findById(data.getRoomId()).orElseThrow();
-                // Broadcast rằng user đã trả lời (không tiết lộ đáp án)
-                    gameSocketFacade.notifyPlayerAnswered(room.getRoomCode(), userId);
+                // Broadcast cho cả phòng biết user này đã trả lời (không lộ đáp án)
+                gameSocketFacade.notifyPlayerAnswered(room.getRoomCode(), userId);
+
+                // Nếu tất cả player đã xong toàn bộ câu hỏi → kết thúc game
+                boolean allCompleted = gameService.haveAllPlayersCompleted(data.getRoomId());
+                if (allCompleted) {
+                    log.info("All players completed. Ending game for room {}", data.getRoomId());
+                    gameTimerService.stopGameTimer(data.getRoomId());
+                    GameOverResponse gameResult = gameService.endGame(data.getRoomId());
+                    gameSocketFacade.notifyGameFinished(room.getRoomCode(), gameResult);
+                }
 
             } catch (Exception e) {
                 log.error("❌ Error submitting answer for user: {}", e.getMessage(), e);

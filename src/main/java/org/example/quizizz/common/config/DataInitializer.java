@@ -90,7 +90,7 @@ public class DataInitializer implements CommandLineRunner {
     private void initializeRoles() {
         List<Role> roles = Arrays.asList(
                 createRole("PLAYER", "Người chơi - Có thể tham gia game, quản lý profile cá nhân"),
-                createRole("HOST", "Chủ phòng - Có thể tạo phòng, quản lý game, kick player"),
+                createRole("TEACHER", "Giáo viên - Có thể tạo phòng, quản lý game, kick player"),
                 createRole("ADMIN", "Quản trị viên - Toàn quyền quản lý hệ thống")
         );
 
@@ -133,7 +133,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private void assignRolePermissions() {
         Role playerRole = roleRepository.findByRoleName("PLAYER").get();
-        Role hostRole = roleRepository.findByRoleName("HOST").get();
+        Role teacherRole = roleRepository.findByRoleName("TEACHER").get();
         Role adminRole = roleRepository.findByRoleName("ADMIN").get();
 
         // PLAYER permissions
@@ -141,8 +141,8 @@ public class DataInitializer implements CommandLineRunner {
                 "user:manage_profile", "room:join", "room:leave", "game:answer", "game:view_score", "rank:view"
         ));
 
-        // HOST permissions (includes PLAYER + host-specific + teacher content management)
-        assignPermissionsToRole(hostRole, Arrays.asList(
+        // TEACHER permissions (includes PLAYER + room management + content management)
+        assignPermissionsToRole(teacherRole, Arrays.asList(
                 "user:manage_profile", "topic:manage", "question:manage",
                 "room:manage", "room:join", "room:leave", "room:kick_player",
                 "room:invite", "game:start", "game:answer", "game:view_score", "rank:view"

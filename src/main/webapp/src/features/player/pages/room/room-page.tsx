@@ -23,6 +23,7 @@ const RoomsPage = () => {
         loadRooms,
         joinRoom,
         clearError,
+        startAutoRefresh,
         stopAutoRefresh,
         subscribeToRoomList,
         unsubscribeFromRoomList
@@ -51,12 +52,15 @@ const RoomsPage = () => {
         // 2. Subscribe to realtime updates
         subscribeToRoomList();
 
-        // 3. Cleanup on unmount
+        // 3. Auto-refresh fallback (15s) phòng trường hợp socket bị mất kết nối / miss event
+        startAutoRefresh();
+
+        // 4. Cleanup on unmount
         return () => {
             unsubscribeFromRoomList();
             stopAutoRefresh();
         };
-    }, [loadRooms, stopAutoRefresh, subscribeToRoomList, unsubscribeFromRoomList]);
+    }, [loadRooms, startAutoRefresh, stopAutoRefresh, subscribeToRoomList, unsubscribeFromRoomList]);
 
     /**
      * Handle joining a public room

@@ -80,8 +80,7 @@ function Login() {
                 const response = await login(formData.username, formData.password);
                 
                 const userData = response.data;
-                const rawRole = userData?.role || userData?.typeAccount;
-                const userRole = rawRole === 'HOST' ? 'TEACHER' : rawRole;
+                const userRole = userData?.role || userData?.typeAccount;
                 
                 showSuccess('Đăng nhập thành công!');
                 

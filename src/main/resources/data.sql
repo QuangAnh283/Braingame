@@ -36,15 +36,15 @@ SELECT 'PLAYER', 'Người chơi - Có thể tham gia game, quản lý profile c
 WHERE NOT EXISTS (SELECT 1 FROM roles WHERE role_name = 'PLAYER');
 
 INSERT INTO roles (role_name, description, is_delete, system_flag, created_at, updated_at)
-SELECT 'HOST',   'Chủ phòng - Có thể tạo phòng, quản lý game, kick player', false, '1', NOW(), NOW()
-WHERE NOT EXISTS (SELECT 1 FROM roles WHERE role_name = 'HOST');
+SELECT 'TEACHER', 'Giáo viên - Có thể tạo phòng, quản lý game, kick player', false, '1', NOW(), NOW()
+WHERE NOT EXISTS (SELECT 1 FROM roles WHERE role_name = 'TEACHER');
 
 INSERT INTO roles (role_name, description, is_delete, system_flag, created_at, updated_at)
 SELECT 'ADMIN',  'Quản trị viên - Toàn quyền quản lý hệ thống', false, '1', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM roles WHERE role_name = 'ADMIN');
 
 -- ---------------------------------------------------------------------
--- 3) Role ↔ Permission mappings  (ADMIN gets all, HOST & PLAYER get subsets)
+-- 3) Role ↔ Permission mappings  (ADMIN gets all, TEACHER & PLAYER get subsets)
 -- ---------------------------------------------------------------------
 INSERT INTO role_permissions (role_id, permission_id, created_at, updated_at)
 SELECT r.id, p.id, NOW(), NOW()
@@ -68,7 +68,7 @@ JOIN permissions p ON p.permission_name IN
   ('user:manage_profile','topic:manage','question:manage',
    'room:manage','room:join','room:leave','room:kick_player',
    'room:invite','game:start','game:answer','game:view_score','rank:view')
-WHERE r.role_name = 'HOST'
+WHERE r.role_name = 'TEACHER'
 ON CONFLICT (role_id, permission_id) DO NOTHING;
 
 -- ---------------------------------------------------------------------
@@ -93,7 +93,7 @@ INSERT INTO topics (name, description, created_at, updated_at) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- ---------------------------------------------------------------------
--- 5) Users  (120 = 20 HOST + 100 PLAYER)  — unique on username & email
+-- 5) Users  (120 = 20 TEACHER + 100 PLAYER)  — unique on username & email
 -- ---------------------------------------------------------------------
 INSERT INTO users (username, password, email, full_name, phone_number, address, dob,
                    type_account, online, email_verified, is_delete, system_flag, created_at, updated_at)
@@ -105,7 +105,7 @@ SELECT
   '09' || LPAD(((n * 7919) % 100000000)::text, 8, '0'),
   'Địa chỉ ' || n || ', Quận ' || ((n % 12) + 1) || ', TP.HCM',
   (DATE '1990-01-01' + ((n * 37) % 12000) * INTERVAL '1 day')::date,
-  CASE WHEN n <= 20 THEN 'HOST' ELSE 'PLAYER' END,
+  CASE WHEN n <= 20 THEN 'TEACHER' ELSE 'PLAYER' END,
   (n % 5 = 0),
   true,
   false,
@@ -130,7 +130,7 @@ ON CONFLICT (user_id, role_id) DO NOTHING;
 INSERT INTO exams (topic_id, teacher_id, title, description, created_at, updated_at)
 SELECT
   (SELECT id FROM topics                  ORDER BY id OFFSET ((n - 1) % 15) LIMIT 1),
-  (SELECT id FROM users WHERE type_account = 'HOST' AND username LIKE 'user%'
+  (SELECT id FROM users WHERE type_account = 'TEACHER' AND username LIKE 'user%'
                                            ORDER BY id OFFSET ((n - 1) % 20) LIMIT 1),
   'Đề thi ' || LPAD(n::text, 3, '0'),
   'Bộ đề số ' || n || ' — seed data',
@@ -180,7 +180,7 @@ SELECT
   (SELECT id FROM topics ORDER BY id OFFSET ((n - 1) % 15) LIMIT 1),
   (SELECT id FROM exams  ORDER BY id OFFSET ((n - 1) % 30) LIMIT 1),
   (n % 3 = 0),
-  (SELECT id FROM users WHERE type_account = 'HOST' AND username LIKE 'user%'
+  (SELECT id FROM users WHERE type_account = 'TEACHER' AND username LIKE 'user%'
                         ORDER BY id OFFSET ((n - 1) % 20) LIMIT 1),
   CASE (n % 4) WHEN 0 THEN 'FINISHED' WHEN 1 THEN 'PLAYING' ELSE 'WAITING' END,
   10, 10, 30,
