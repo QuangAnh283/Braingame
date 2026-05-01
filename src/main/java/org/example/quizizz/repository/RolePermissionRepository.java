@@ -14,9 +14,12 @@ import java.util.Set;
 public interface RolePermissionRepository extends JpaRepository<RolePermission, Long> {
     
     List<RolePermission> findByRoleId(Long roleId);
-    
-    @Modifying
-    void deleteByRoleId(Long roleId);
+
+    // flush + clear bắt buộc để DELETE chạy NGAY tại DB trước khi saveAll() insert,
+    // tránh vi phạm UNIQUE(role_id, permission_id) khi update danh sách quyền của role.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("DELETE FROM RolePermission rp WHERE rp.roleId = :roleId")
+    void deleteByRoleId(@Param("roleId") Long roleId);
     
     @Query("SELECT rp FROM RolePermission rp WHERE rp.roleId = :roleId AND rp.permissionId IN :permissionIds")
     List<RolePermission> findByRoleIdAndPermissionIdIn(@Param("roleId") Long roleId, @Param("permissionIds") Set<Long> permissionIds);

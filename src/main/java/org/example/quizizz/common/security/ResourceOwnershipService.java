@@ -77,4 +77,8 @@ public class ResourceOwnershipService {
     public boolean isAdmin(String typeAccount) {
         return "ADMIN".equalsIgnoreCase(typeAccount);
     }
+
+    public boolean isHost(String typeAccount) {
+        return "HOST".equalsIgnoreCase(typeAccount);
+    }
 }
