@@ -100,31 +100,9 @@ const GameRoom = () => {
                 handleGameMessageRef.current?.({ type: 'GAME_ENDED', data });
             });
 
-            socketService.on('countdown-tick', (data) => {
-                if (data?.roomCode && roomCode && data.roomCode !== roomCode) {
-                    return;
-                }
-                if (data?.roomId && currentRoom?.id && Number(data.roomId) !== Number(currentRoom.id)) {
-                    return;
-                }
-                setTimeRemaining(Math.max(0, Number(data?.remainingTime) || 0));
-            });
-
-            socketService.on('time-up', (data) => {
-                if (data?.roomCode && roomCode && data.roomCode !== roomCode) {
-                    return;
-                }
-                if (data?.roomId && currentRoom?.id && Number(data.roomId) !== Number(currentRoom.id)) {
-                    return;
-                }
-
-                setTimeRemaining(0);
-                if (!hasAnsweredRef.current) {
-                    hasAnsweredRef.current = true;
-                    setHasAnswered(true);
-                    setNotification({ type: 'info', message: 'Hết thời gian trả lời câu hỏi này.' });
-                }
-            });
+            // Per-player flow: timeRemaining giờ do local countdown quản lý (xem useEffect bên dưới),
+            // không dùng countdown-tick/time-up từ shared timer của server vì mỗi player đang ở
+            // câu hỏi khác nhau với mốc thời gian riêng. Bỏ qua 2 sự kiện này.
         };
 
         const initializeWebSocket = async () => {
@@ -173,30 +151,69 @@ const GameRoom = () => {
         };
     }, [currentRoom?.id, currentUser, navigate, roomCode]);
 
+    // Per-player local countdown: mỗi câu hỏi của player tự đếm từ timeLimit về 0.
+    // Khi 0 mà chưa trả lời thì auto-submit null (server tính sai, score 0, gửi câu tiếp theo).
+    useEffect(() => {
+        if (!currentQuestion) return;
+
+        const limit = Number(currentQuestion.timeLimit) || 30;
+        setTimeRemaining(limit);
+        // Đánh dấu mốc bắt đầu để tính timeTaken khi player submit.
+        questionStartTimeRef.current = Date.now();
+
+        const interval = setInterval(() => {
+            setTimeRemaining(prev => {
+                if (prev <= 1) {
+                    clearInterval(interval);
+                    if (!hasAnsweredRef.current) {
+                        hasAnsweredRef.current = true;
+                        setHasAnswered(true);
+                        socketService.emit('submit-answer', {
+                            roomId: currentRoom?.id,
+                            questionId: currentQuestion.questionId || currentQuestion.id,
+                            answerId: null,
+                            selectedAnswer: null,
+                            selectedOptionIndex: null,
+                            answerText: null,
+                            // Hết giờ → timeTaken = full timeLimit (ms) để dashboard hiển thị đúng.
+                            timeTaken: limit * 1000
+                        });
+                    }
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [currentQuestion, currentRoom?.id]);
+
     const handleGameMessage = (message) => {
 
         switch (message.type) {
             case 'GAME_STARTED':
-                // Trích xuất câu hỏi đầu tiên từ sự kiện game-started
-                if (message.data.question) {
-                    // Sửa: Khởi tạo gameState với players từ currentRoom
-                    if (currentRoom?.players) {
-                        setGameState({
-                            players: currentRoom.players.map(p => ({
-                                ...p,
-                                score: 0, 
-                                hasAnswered: false
-                            }))
-                        });
-                    }
+                // Per-player flow: game-started giờ là tín hiệu khởi động, KHÔNG kèm câu hỏi.
+                // Câu hỏi đầu tiên được gửi riêng cho từng player qua sự kiện next-question
+                // ngay sau game-started, với thứ tự shuffle theo userId.
+                if (currentRoom?.players) {
+                    setGameState({
+                        players: currentRoom.players.map(p => ({
+                            ...p,
+                            score: 0,
+                            hasAnswered: false
+                        }))
+                    });
+                }
+                setShowGameStart(true);
 
+                // Backwards-compat: nếu vẫn có question (server cũ chưa update) thì set luôn.
+                if (message.data.question) {
                     setCurrentQuestion(message.data.question);
                     setSelectedAnswer(null);
                     hasAnsweredRef.current = false;
                     setHasAnswered(false);
                     setTimeRemaining(message.data.question.timeLimit || 30);
                     questionStartTimeRef.current = Date.now();
-                    setShowGameStart(true); // Hiển thị popup bắt đầu game
                 }
                 break;
 
@@ -284,14 +301,19 @@ const GameRoom = () => {
         );
         const answerId = selectedAnswerObj?.id;
 
-        // Backend tự tính timeTaken từ countdown server-authoritative.
+        // Đo thời gian player thực sự dùng để trả lời (ms) — backend dùng cho score + dashboard.
+        const timeTaken = questionStartTimeRef.current
+            ? Date.now() - questionStartTimeRef.current
+            : null;
+
         socketService.emit('submit-answer', {
             roomId: roomId,
             questionId: questionId,
             answerId: answerId,
             selectedAnswer: selectedAnswer,
             selectedOptionIndex: selectedOptionIndex,
-            answerText: selectedAnswer
+            answerText: selectedAnswer,
+            timeTaken: timeTaken
         });
 
         hasAnsweredRef.current = true;

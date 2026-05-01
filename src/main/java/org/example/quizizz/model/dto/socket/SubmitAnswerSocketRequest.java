@@ -11,6 +11,8 @@ public class SubmitAnswerSocketRequest {
     private Integer selectedOptionIndex;
     private String selectedAnswer;
     private String answerText;
+    /** Thời gian player dùng để trả lời câu hỏi này (ms) — frontend đo client-side từ lúc nhận câu hỏi. */
+    private Long timeTaken;
 
     @JsonSetter("roomId")
     public void setRoomId(Object roomId) {

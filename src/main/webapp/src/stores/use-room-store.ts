@@ -390,13 +390,25 @@ const useRoomStore = create<any>((set, get) => ({
         return get().joinRoomByCode(roomCode);
     },
 
-    // Các phương thức tự động làm mới
+    // Auto-refresh interval as fallback nếu socket tạm mất kết nối hoặc miss event.
+    // Real-time chính qua socket; auto-refresh chỉ là an toàn dự phòng.
+    _autoRefreshInterval: null,
+
     startAutoRefresh: () => {
-        // Có thể thêm implementation nếu cần
+        const state = get();
+        if (state._autoRefreshInterval) return;
+        const interval = setInterval(() => {
+            get().fetchRooms();
+        }, 15000); // 15s — đủ thưa để không tạo tải, đủ thường xuyên để bù missed events.
+        set({ _autoRefreshInterval: interval });
     },
 
     stopAutoRefresh: () => {
-        // Có thể thêm implementation nếu cần
+        const state = get();
+        if (state._autoRefreshInterval) {
+            clearInterval(state._autoRefreshInterval);
+            set({ _autoRefreshInterval: null });
+        }
     },
 
     subscribeToRoomList: async () => {

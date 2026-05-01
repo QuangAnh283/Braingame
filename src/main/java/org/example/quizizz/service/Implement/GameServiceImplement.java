@@ -205,7 +205,7 @@ public class GameServiceImplement implements IGameService {
     @Override
     @Transactional
     public QuestionResultResponse submitAnswer(Long roomId, Long userId, AnswerSubmitRequest request) {
-        if (roomId == null || userId == null || request == null || request.getQuestionId() == null || request.getAnswerId() == null) {
+        if (roomId == null || userId == null || request == null || request.getQuestionId() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Missing answer submission data");
         }
 
@@ -219,34 +219,30 @@ public class GameServiceImplement implements IGameService {
             throw new ApiException(HttpStatus.CONFLICT.value(), MessageCode.GAME_ALREADY_STARTED, "Game is not active");
         }
 
-        Long currentQuestionId = asLong(sessionData.get("currentQuestionId"));
-        Long startedAt = asLong(sessionData.get("currentQuestionStartedAt"));
-        Long expiresAt = asLong(sessionData.get("currentQuestionExpiresAt"));
         long now = System.currentTimeMillis();
 
-        if (currentQuestionId == null || startedAt == null || expiresAt == null) {
-            throw new ApiException(HttpStatus.CONFLICT.value(), MessageCode.BAD_REQUEST, "No active question is available");
-        }
-        if (!currentQuestionId.equals(request.getQuestionId())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Answer is not for the active question");
-        }
-        if (now > expiresAt) {
-            throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Time is up for this question");
-        }
         if (userAnswerRepository.existsByRoomIdAndUserIdAndQuestionId(roomId, userId, request.getQuestionId())) {
             throw new ApiException(HttpStatus.CONFLICT.value(), MessageCode.BAD_REQUEST, "Question already answered");
         }
 
-        Answer answer = answerRepository.findById(request.getAnswerId()).orElseThrow();
-        if (!request.getQuestionId().equals(answer.getQuestionId())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Answer does not belong to the submitted question");
+        // Cho phép answerId == null = skip (hết giờ hoặc bỏ qua) → tính sai, score 0.
+        boolean isCorrect = false;
+        if (request.getAnswerId() != null) {
+            Answer answer = answerRepository.findById(request.getAnswerId()).orElseThrow();
+            if (!request.getQuestionId().equals(answer.getQuestionId())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST.value(), MessageCode.BAD_REQUEST, "Answer does not belong to the submitted question");
+            }
+            isCorrect = answer.getIsCorrect();
         }
-
-        boolean isCorrect = answer.getIsCorrect();
 
         // Lấy thông tin phòng để tính điểm
         Room room = roomRepository.findById(roomId).orElseThrow();
-        long serverTimeTaken = Math.max(0, Math.min(now - startedAt, room.getCountdownTime() * 1000L));
+        long maxTimeMs = room.getCountdownTime() * 1000L;
+        // Per-player flow: timer client-side gửi kèm timeTaken (ms). Server clamp [0, maxTimeMs] để
+        // tránh client gửi giá trị âm hoặc vượt thời gian → vừa fair cho leaderboard, vừa anti-cheat.
+        long serverTimeTaken = request.getTimeTaken() != null
+                ? Math.max(0L, Math.min(request.getTimeTaken(), maxTimeMs))
+                : maxTimeMs;
 
         // Tính điểm dựa trên tốc độ và độ chính xác
         int baseScore = scoreCalculator.calculateScore(isCorrect, serverTimeTaken, room.getCountdownTime());
@@ -299,24 +295,6 @@ public class GameServiceImplement implements IGameService {
         return response;
     }
 
-    private Long asLong(Object value) {
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Long longValue) {
-            return longValue;
-        }
-        if (value instanceof Integer integerValue) {
-            return integerValue.longValue();
-        }
-        if (value instanceof Number numberValue) {
-            return numberValue.longValue();
-        }
-        if (value instanceof String stringValue && !stringValue.isBlank()) {
-            return Long.parseLong(stringValue);
-        }
-        return null;
-    }
 
     private int calculatePlayerStreak(Long userId, Long roomId) {
         // Lấy tất cả câu trả lời của user trong room này, sắp xếp theo thời gian
@@ -500,13 +478,15 @@ public class GameServiceImplement implements IGameService {
         return response;
     }
 
-    /*** Xử lý event khi hết thời gian trả lời ***/
+    /*** Xử lý event khi hết thời gian trả lời.
+     *  Per-player flow: không còn broadcast next-question từ timer; mỗi player tự advance
+     *  sau khi submit (hoặc auto-submit null khi client-side timer expire). Timer này chỉ
+     *  còn vai trò end-game nếu tất cả player đã xong khi shared timer hết.
+     */
     @EventListener
     public void handleTimerFinished(GameTimerEvent event) {
         try {
             Long roomId = event.getRoomId();
-            log.info("Timer finished for room {}", roomId);
-
             synchronized (roomLock(roomId)) {
                 String gameId = "game:" + roomId;
                 Map<String, Object> sessionData = redisService.getGameSession(gameId);
@@ -514,21 +494,11 @@ public class GameServiceImplement implements IGameService {
                     return;
                 }
 
-                int currentIndex = ((Number) sessionData.get("currentQuestionIndex")).intValue();
-                int totalQuestions = ((Number) sessionData.get("totalQuestions")).intValue();
-                Room room = roomRepository.findById(roomId).orElseThrow();
-
-                if (currentIndex < totalQuestions) {
-                    NextQuestionResponse nextQuestion = getNextQuestion(roomId);
-                    if (nextQuestion != null) {
-                        gameSocketFacade.notifyNextQuestion(room.getRoomCode(), nextQuestion);
-                        gameTimerService.startGameTimer(roomId, room.getRoomCode(), nextQuestion.getTimeLimit());
-                    }
-                    return;
+                if (haveAllPlayersCompleted(roomId)) {
+                    Room room = roomRepository.findById(roomId).orElseThrow();
+                    GameOverResponse gameResult = endGameLocked(roomId);
+                    gameSocketFacade.notifyGameFinished(room.getRoomCode(), gameResult);
                 }
-
-                GameOverResponse gameResult = endGameLocked(roomId);
-                gameSocketFacade.notifyGameFinished(room.getRoomCode(), gameResult);
             }
         } catch (Exception e) {
             log.error("Error handling timer event: {}", e.getMessage(), e);
@@ -583,20 +553,13 @@ public class GameServiceImplement implements IGameService {
             int totalQuestions = ((Number) sessionData.get("totalQuestions")).intValue();
             Long gameSessionId = ((Number) sessionData.get("gameSessionId")).longValue();
 
-            // Đếm số câu hỏi player này đã trả lời
             List<UserAnswer> playerAnswers = userAnswerRepository.findByRoomIdAndUserId(roomId, userId);
             int answeredCount = playerAnswers.size();
 
-            log.info("Player {} has answered {}/{} questions in room {}",
-                    userId, answeredCount, totalQuestions, roomId);
-
-            // Nếu đã trả lời hết -> return null
             if (answeredCount >= totalQuestions) {
-                log.info("Player {} has completed all questions in room {}", userId, roomId);
                 return null;
             }
 
-            // Lấy câu hỏi tiếp theo (index = số câu đã trả lời)
             Room room = roomRepository.findById(roomId).orElseThrow();
             List<GameQuestion> gameQuestions = gameQuestionRepository
                     .findByGameSessionIdOrderByQuestionOrder(gameSessionId);
@@ -605,12 +568,20 @@ public class GameServiceImplement implements IGameService {
                 return null;
             }
 
-            GameQuestion nextGameQuestion = gameQuestions.get(answeredCount);
+            // Per-player shuffle thứ tự câu hỏi: deterministic theo (gameSession, user)
+            // → mỗi player có thứ tự riêng nhưng giữ nguyên giữa các lần gọi (idempotent).
+            List<GameQuestion> playerOrder = new ArrayList<>(gameQuestions);
+            long questionSeed = gameSessionId * 1000003L + userId;
+            Collections.shuffle(playerOrder, new Random(questionSeed));
+
+            GameQuestion nextGameQuestion = playerOrder.get(answeredCount);
             Question question = questionRepository.findById(nextGameQuestion.getQuestionId()).orElseThrow();
 
-            // Lấy đáp án và shuffle để tráo vị trí
-            List<Answer> answers = answerRepository.findByQuestionId(question.getId());
-            Collections.shuffle(answers); // Tráo đáp án để đáp án đúng không luôn ở vị trí A
+            // Per-player shuffle đáp án: seed theo (player, question) để cùng player + cùng question
+            // luôn thấy thứ tự nhất quán nếu reload, nhưng khác nhau giữa các player.
+            List<Answer> answers = new ArrayList<>(answerRepository.findByQuestionId(question.getId()));
+            long answerSeed = questionSeed * 31L + question.getId();
+            Collections.shuffle(answers, new Random(answerSeed));
             List<AnswerOption> answerOptions = answers.stream()
                     .map(a -> new AnswerOption(a.getId(), a.getAnswerText()))
                     .collect(Collectors.toList());
@@ -623,8 +594,8 @@ public class GameServiceImplement implements IGameService {
             response.setQuestionNumber(answeredCount + 1);
             response.setTotalQuestions(totalQuestions);
 
-            log.info("Returning question {} for player {} in room {}",
-                    answeredCount + 1, userId, roomId);
+            log.info("Returning question {}/{} for player {} in room {}",
+                    answeredCount + 1, totalQuestions, userId, roomId);
 
             return response;
         } catch (Exception e) {
