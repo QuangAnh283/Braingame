@@ -330,13 +330,7 @@
     background: linear-gradient(180deg, var(--primary-dark), var(--primary));
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html, body {
-    scroll-behavior: smooth;
+.wp-welcome-page-container {
     scrollbar-width: thin;
     scrollbar-color: var(--primary) var(--surface);
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-    height: 100%;
 }
-body { line-height: 1; }

@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import {
   FaBrain,
   FaChartLine,
@@ -13,234 +14,258 @@ import grokImg from "../../assets/images/grok.png";
 import claudeImg from "../../assets/images/claude.png";
 import qwenImg from "../../assets/images/qwen.png";
 
+const fadeUp = {
+  hidden: { opacity: 0, y: 24 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" as const } },
+};
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
+};
+
+const cardItem = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 280, damping: 22 } },
+};
+
+const slideFromLeft = {
+  hidden: { opacity: 0, x: -60 },
+  show: { opacity: 1, x: 0, transition: { type: "spring" as const, stiffness: 220, damping: 26 } },
+};
+
+const slideFromRight = {
+  hidden: { opacity: 0, x: 60 },
+  show: { opacity: 1, x: 0, transition: { type: "spring" as const, stiffness: 220, damping: 26 } },
+};
+
+const viewportOnce = { once: true, amount: 0.2 };
+
+const missionStats = [
+  { number: "50+", label: "Trò chơi trí tuệ" },
+  { number: "100K+", label: "Người dùng" },
+  { number: "5M+", label: "Lượt chơi" },
+];
+
+const timelineEvents = [
+  {
+    year: "2020",
+    icon: FaHistory,
+    description:
+      "BrainGame được thành lập với ý tưởng ban đầu về một nền tảng học tập thông qua trò chơi.",
+  },
+  {
+    year: "2021",
+    icon: FaLightbulb,
+    description:
+      "Ra mắt phiên bản đầu tiên với 10 trò chơi trí tuệ cơ bản và thu hút 10,000 người dùng đầu tiên.",
+  },
+  {
+    year: "2022",
+    icon: FaUsers,
+    description:
+      "Mở rộng đội ngũ và phát triển thêm 20 trò chơi mới, đạt mốc 50,000 người dùng.",
+  },
+  {
+    year: "2023",
+    icon: FaChartLine,
+    description:
+      "Phát triển tính năng cá nhân hóa và phân tích dữ liệu, giúp người dùng theo dõi tiến trình học tập hiệu quả hơn.",
+  },
+  {
+    year: "2024",
+    icon: FaMedal,
+    description:
+      "Trở thành nền tảng trò chơi trí não hàng đầu Việt Nam với hơn 100,000 người dùng thường xuyên.",
+  },
+];
+
+const coreValues = [
+  {
+    icon: FaBrain,
+    title: "Khoa học",
+    description:
+      "Mọi trò chơi đều được phát triển dựa trên nghiên cứu khoa học về não bộ và quá trình học tập.",
+  },
+  {
+    icon: FaLightbulb,
+    title: "Sáng tạo",
+    description:
+      "Luôn đổi mới và tìm kiếm những cách tiếp cận mới để phát triển trí tuệ.",
+  },
+  {
+    icon: FaUsers,
+    title: "Cộng đồng",
+    description: "Xây dựng cộng đồng học tập và phát triển cùng nhau.",
+  },
+  {
+    icon: FaChartLine,
+    title: "Tiến bộ",
+    description:
+      "Cam kết giúp người dùng đạt được tiến bộ thực sự trong việc phát triển trí tuệ.",
+  },
+];
+
+const teamMembers = [
+  { photo: witchImg, name: "Phù Thủy cấp 1", title: "Nhà sáng lập & CEO" },
+  {
+    photo: grokImg,
+    name: "Grok",
+    title: "Bộ môn phòng chống nghệ thuật hắc ám",
+  },
+  { photo: claudeImg, name: "Claude", title: "Bác Sĩ chính" },
+  { photo: qwenImg, name: "Qwen", title: "Chuyên viên hậu cần" },
+];
+
 function AboutPage() {
   return (
     <div className="about-page">
       {/* Hero Section */}
       <div className="about-hero">
-        <div className="about-hero-content">
+        <motion.div
+          className="about-hero-content"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
           <h1>Về Chúng Tôi</h1>
           <p>Nền tảng trò chơi trí não hàng đầu Việt Nam</p>
-        </div>
+        </motion.div>
       </div>
 
       {/* Main Content */}
       <div className="about-container">
         {/* Mission Section */}
-        <section className="about-mission">
-          <div className="mission-content">
-            <h2>Sứ mệnh của chúng tôi</h2>
-            <p>
-              BrainGame được thành lập với sứ mệnh giúp mọi người phát triển trí
-              tuệ thông qua các trò chơi trí não thú vị và bổ ích. Chúng tôi tin
-              rằng việc rèn luyện não bộ có thể trở nên thú vị và hấp dẫn thông
-              qua các trò chơi được thiết kế khoa học.
-            </p>
-            <div className="mission-stats">
-              <div className="stat-item">
-                <span className="stat-number">50+</span>
-                <span className="stat-label">Trò chơi trí tuệ</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-number">100K+</span>
-                <span className="stat-label">Người dùng</span>
-              </div>
-              <div className="stat-item">
-                <span className="stat-number">5M+</span>
-                <span className="stat-label">Lượt chơi</span>
-              </div>
-            </div>
-          </div>
-          <div className="mission-image">
-            <img
-              src={
-                "https://via.placeholder.com/500x350/5c6bc0/ffffff?text=BrainGame"
-              }
-              alt="Sứ mệnh BrainGame"
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src =
-                  "https://via.placeholder.com/500x350/5c6bc0/ffffff?text=BrainGame";
-              }}
-            />
-          </div>
-        </section>
+        <motion.section
+          className="about-mission"
+          variants={stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={viewportOnce}
+        >
+          <motion.h2 variants={fadeUp}>Sứ mệnh của chúng tôi</motion.h2>
+          <motion.p className="mission-description" variants={fadeUp}>
+            BrainGame được thành lập với sứ mệnh giúp mọi người phát triển trí
+            tuệ thông qua các trò chơi trí não thú vị và bổ ích. Chúng tôi tin
+            rằng việc rèn luyện não bộ có thể trở nên thú vị và hấp dẫn thông
+            qua các trò chơi được thiết kế khoa học.
+          </motion.p>
+          <motion.div className="mission-stats" variants={stagger}>
+            {missionStats.map((stat) => (
+              <motion.div
+                key={stat.label}
+                className="stat-item"
+                variants={cardItem}
+              >
+                <span className="stat-number">{stat.number}</span>
+                <span className="stat-label">{stat.label}</span>
+              </motion.div>
+            ))}
+          </motion.div>
+        </motion.section>
 
-        {/* Story Section */}
-        <section className="about-story">
-          <div className="story-image">
-            <img
-              src={
-                "https://via.placeholder.com/500x350/3f51b5/ffffff?text=Our+Story"
-              }
-              alt="Câu chuyện BrainGame"
-              onError={(e) => {
-                e.currentTarget.onerror = null;
-                e.currentTarget.src =
-                  "https://via.placeholder.com/500x350/3f51b5/ffffff?text=Our+Story";
-              }}
-            />
-          </div>
-          <div className="story-content">
-            <h2>Câu chuyện của chúng tôi</h2>
-            <div className="timeline">
-              <div className="timeline-item">
-                <div className="timeline-marker">
-                  <FaHistory />
-                </div>
-                <div className="timeline-content">
-                  <h3>2020</h3>
-                  <p>
-                    BrainGame được thành lập với ý tưởng ban đầu về một nền tảng
-                    học tập thông qua trò chơi.
-                  </p>
-                </div>
-              </div>
-              <div className="timeline-item">
-                <div className="timeline-marker">
-                  <FaLightbulb />
-                </div>
-                <div className="timeline-content">
-                  <h3>2021</h3>
-                  <p>
-                    Ra mắt phiên bản đầu tiên với 10 trò chơi trí tuệ cơ bản và
-                    thu hút 10,000 người dùng đầu tiên.
-                  </p>
-                </div>
-              </div>
-              <div className="timeline-item">
-                <div className="timeline-marker">
-                  <FaUsers />
-                </div>
-                <div className="timeline-content">
-                  <h3>2022</h3>
-                  <p>
-                    Mở rộng đội ngũ và phát triển thêm 20 trò chơi mới, đạt mốc
-                    50,000 người dùng.
-                  </p>
-                </div>
-              </div>
-              <div className="timeline-item">
-                <div className="timeline-marker">
-                  <FaChartLine />
-                </div>
-                <div className="timeline-content">
-                  <h3>2023</h3>
-                  <p>
-                    Phát triển tính năng cá nhân hóa và phân tích dữ liệu, giúp
-                    người dùng theo dõi tiến trình học tập hiệu quả hơn.
-                  </p>
-                </div>
-              </div>
-              <div className="timeline-item">
-                <div className="timeline-marker">
-                  <FaMedal />
-                </div>
-                <div className="timeline-content">
-                  <h3>2024</h3>
-                  <p>
-                    Trở thành nền tảng trò chơi trí não hàng đầu Việt Nam với
-                    hơn 100,000 người dùng thường xuyên.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Story Section — Centered Vertical Timeline */}
+        <motion.section
+          className="about-story"
+          variants={stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={viewportOnce}
+        >
+          <motion.h2 variants={fadeUp}>Câu chuyện của chúng tôi</motion.h2>
+          <motion.div className="timeline" variants={stagger}>
+            {timelineEvents.map((event, index) => {
+              const Icon = event.icon;
+              const isLeft = index % 2 === 0;
+              return (
+                <motion.div
+                  key={event.year}
+                  className={`timeline-item ${isLeft ? "left" : "right"}`}
+                  variants={isLeft ? slideFromLeft : slideFromRight}
+                >
+                  <div className="timeline-marker">
+                    <Icon />
+                  </div>
+                  <div className="timeline-content">
+                    <h3>{event.year}</h3>
+                    <p>{event.description}</p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </motion.section>
 
         {/* Values Section */}
-        <section className="about-values">
-          <h2>Giá trị cốt lõi</h2>
-          <div className="values-grid">
-            <div className="value-card">
-              <div className="value-icon">
-                <FaBrain />
-              </div>
-              <h3>Khoa học</h3>
-              <p>
-                Mọi trò chơi đều được phát triển dựa trên nghiên cứu khoa học về
-                não bộ và quá trình học tập.
-              </p>
-            </div>
-            <div className="value-card">
-              <div className="value-icon">
-                <FaLightbulb />
-              </div>
-              <h3>Sáng tạo</h3>
-              <p>
-                Luôn đổi mới và tìm kiếm những cách tiếp cận mới để phát triển
-                trí tuệ.
-              </p>
-            </div>
-            <div className="value-card">
-              <div className="value-icon">
-                <FaUsers />
-              </div>
-              <h3>Cộng đồng</h3>
-              <p>Xây dựng cộng đồng học tập và phát triển cùng nhau.</p>
-            </div>
-            <div className="value-card">
-              <div className="value-icon">
-                <FaChartLine />
-              </div>
-              <h3>Tiến bộ</h3>
-              <p>
-                Cam kết giúp người dùng đạt được tiến bộ thực sự trong việc phát
-                triển trí tuệ.
-              </p>
-            </div>
-          </div>
-        </section>
+        <motion.section
+          className="about-values"
+          variants={stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={viewportOnce}
+        >
+          <motion.h2 variants={fadeUp}>Giá trị cốt lõi</motion.h2>
+          <motion.div className="values-grid" variants={stagger}>
+            {coreValues.map((value) => {
+              const Icon = value.icon;
+              return (
+                <motion.div
+                  key={value.title}
+                  className="value-card"
+                  variants={cardItem}
+                >
+                  <div className="value-icon">
+                    <Icon />
+                  </div>
+                  <h3>{value.title}</h3>
+                  <p>{value.description}</p>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </motion.section>
 
         {/* Team Section */}
-        <section className="about-team">
-          <h2>Đội ngũ của chúng tôi</h2>
-          <p className="team-intro">
+        <motion.section
+          className="about-team"
+          variants={stagger}
+          initial="hidden"
+          whileInView="show"
+          viewport={viewportOnce}
+        >
+          <motion.h2 variants={fadeUp}>Đội ngũ của chúng tôi</motion.h2>
+          <motion.p className="team-intro" variants={fadeUp}>
             Đội ngũ BrainGame bao gồm các chuyên gia trong lĩnh vực khoa học
             thần kinh, thiết kế trò chơi, và phát triển phần mềm. Chúng tôi làm
             việc với niềm đam mê và sự tận tâm để mang đến những trải nghiệm tốt
             nhất cho người dùng.
-          </p>
-          <div className="team-grid">
-            <div className="team-member">
-              <div
-                className="member-photo"
-                style={{ backgroundImage: `url(${witchImg})` }}
-              ></div>
-              <h3>Phù Thủy cấp 1</h3>
-              <p className="member-title">Nhà sáng lập & CEO</p>
-            </div>
-            <div className="team-member">
-              <div
-                className="member-photo"
-                style={{ backgroundImage: `url(${grokImg})` }}
-              ></div>
-              <h3>Grok</h3>
-              <p className="member-title">
-                Bộ môn phòng chống nghệ thuật hắc ám
-              </p>
-            </div>
-            <div className="team-member">
-              <div
-                className="member-photo"
-                style={{ backgroundImage: `url(${claudeImg})` }}
-              ></div>
-              <h3>Claude</h3>
-              <p className="member-title">Bác Sĩ chính</p>
-            </div>
-            <div className="team-member">
-              <div
-                className="member-photo"
-                style={{ backgroundImage: `url(${qwenImg})` }}
-              ></div>
-              <h3>Qwen</h3>
-              <p className="member-title">Chuyên viên hậu cần</p>
-            </div>
-          </div>
-        </section>
+          </motion.p>
+          <motion.div className="team-grid" variants={stagger}>
+            {teamMembers.map((member) => (
+              <motion.div
+                key={member.name}
+                className="team-member"
+                variants={cardItem}
+              >
+                <div
+                  className="member-photo"
+                  style={{ backgroundImage: `url(${member.photo})` }}
+                ></div>
+                <h3>{member.name}</h3>
+                <p className="member-title">{member.title}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </motion.section>
 
         {/* CTA Section */}
-        <section className="about-cta">
+        <motion.section
+          className="about-cta"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="show"
+          viewport={viewportOnce}
+        >
           <h2>Sẵn sàng rèn luyện trí não của bạn?</h2>
           <p>
             Tham gia cùng hơn 100,000 người dùng đang phát triển trí tuệ mỗi
@@ -254,7 +279,7 @@ function AboutPage() {
               Khám phá trò chơi
             </a>
           </div>
-        </section>
+        </motion.section>
       </div>
     </div>
   );

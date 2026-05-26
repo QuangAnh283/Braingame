@@ -225,15 +225,34 @@
 }
 
 .option-btn.selected {
-    background: var(--success);
+    background: var(--primary);
     color: white;
-    border-color: var(--success);
-    transform: scale(1.02);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.25);
+}
+
+.option-btn.correct {
+    background: #22c55e;
+    color: white;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.3), 0 8px 24px rgba(34, 197, 94, 0.35);
+}
+
+.option-btn.incorrect {
+    background: #ef4444;
+    color: white;
+    border-color: #dc2626;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.3), 0 8px 24px rgba(239, 68, 68, 0.35);
 }
 
 .option-btn.disabled {
     opacity: 0.6;
     cursor: not-allowed;
+}
+
+.option-btn.disabled.correct,
+.option-btn.disabled.incorrect {
+    opacity: 1;
 }
 
 .option-letter {

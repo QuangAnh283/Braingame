@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FaCrown, FaMedal } from 'react-icons/fa';
+import { motion, AnimatePresence } from 'framer-motion';
 import socketService from '../../services/socket-service';
 import authStore from '../../stores/auth-store';
 import useRoomStore from '../../stores/use-room-store-realtime';
@@ -9,6 +10,20 @@ import CompletionPopup from './CompletionPopup';
 import GameStartPopup from './GameStartPopup';
 import NotificationPopup from './NotificationPopup';
 import '../../styles/components/room/game-room.css';
+
+const optionsContainerVariants = {
+    hidden: {},
+    show: { transition: { staggerChildren: 0.08, delayChildren: 0.12 } },
+};
+
+const optionVariants = {
+    hidden: { opacity: 0, y: 16 },
+    show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 320, damping: 24 } },
+    shake: {
+        x: [0, -10, 10, -8, 8, -4, 4, 0],
+        transition: { duration: 0.55, ease: 'easeInOut' },
+    },
+};
 
 const formatTime = (seconds) => {
     const safe = Math.max(0, Number(seconds) || 0);
@@ -435,52 +450,76 @@ const GameRoom = () => {
                     </div>
                 </div>
 
-                <div className="question-container">
-                    {currentQuestion.imageUrl && (
-                        <div className="question-image">
-                            <img src={currentQuestion.imageUrl} alt="Question" />
-                        </div>
-                    )}
-
-                    <h2 className="question-text">{currentQuestion.questionText}</h2>
-
-                    <div className="options-container">
-                        {questionOptions.length > 0 ? (
-                            questionOptions.map((option, index) => {
-                                // FIX: Backend returns {id, text} not {id, answerText}
-                                const optionText = option.text || option.answerText || option;
-                                const optionId = option.id || index;
-
-                                return (
-                                    <button
-                                        key={optionId}
-                                        className={`option-btn ${selectedAnswer === optionText ? 'selected' : ''} ${hasAnswered ? 'disabled' : ''}`}
-                                        onClick={() => !hasAnswered && setSelectedAnswer(optionText)}
-                                        disabled={hasAnswered}
-                                    >
-                                        <span className="option-letter">{String.fromCharCode(65 + index)}</span>
-                                        <span className="option-text">{optionText}</span>
-                                    </button>
-                                );
-                            })
-                        ) : (
-                            <div className="no-options">
-                                <p>⚠️ Không có đáp án nào được tải</p>
-                                <p>Debug info: {JSON.stringify(currentQuestion, null, 2)}</p>
+                <AnimatePresence mode="wait">
+                    <motion.div
+                        key={currentQuestion.questionId || currentQuestion.id || currentQuestion.questionNumber}
+                        className="question-container"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        transition={{ duration: 0.35, ease: 'easeOut' }}
+                    >
+                        {currentQuestion.imageUrl && (
+                            <div className="question-image">
+                                <img src={currentQuestion.imageUrl} alt="Question" />
                             </div>
                         )}
-                    </div>
 
-                    <div className="question-actions">
-                        <button
-                            className={`submit-btn ${!selectedAnswer || hasAnswered ? 'disabled' : ''}`}
-                            onClick={submitAnswer}
-                            disabled={!selectedAnswer || hasAnswered}
+                        <h2 className="question-text">{currentQuestion.questionText}</h2>
+
+                        <motion.div
+                            className="options-container"
+                            variants={optionsContainerVariants}
+                            initial="hidden"
+                            animate="show"
                         >
-                            {hasAnswered ? 'Đã trả lời' : 'Gửi đáp án'}
-                        </button>
-                    </div>
-                </div>
+                            {questionOptions.length > 0 ? (
+                                questionOptions.map((option, index) => {
+                                    // FIX: Backend returns {id, text} not {id, answerText}
+                                    const optionText = option.text || option.answerText || option;
+                                    const optionId = option.id || index;
+                                    const isSelected = selectedAnswer === optionText;
+                                    // Sau khi có kết quả: highlight nút đã chọn theo isCorrect
+                                    const reveal = hasAnswered && answerResult && isSelected;
+                                    const stateClass = reveal
+                                        ? (answerResult.isCorrect ? 'correct' : 'incorrect')
+                                        : (isSelected ? 'selected' : '');
+
+                                    return (
+                                        <motion.button
+                                            key={optionId}
+                                            className={`option-btn ${stateClass} ${hasAnswered ? 'disabled' : ''}`}
+                                            variants={optionVariants}
+                                            animate={reveal && !answerResult.isCorrect ? 'shake' : 'show'}
+                                            whileHover={!hasAnswered ? { scale: 1.03 } : undefined}
+                                            whileTap={!hasAnswered ? { scale: 0.97 } : undefined}
+                                            onClick={() => !hasAnswered && setSelectedAnswer(optionText)}
+                                            disabled={hasAnswered}
+                                        >
+                                            <span className="option-letter">{String.fromCharCode(65 + index)}</span>
+                                            <span className="option-text">{optionText}</span>
+                                        </motion.button>
+                                    );
+                                })
+                            ) : (
+                                <div className="no-options">
+                                    <p>⚠️ Không có đáp án nào được tải</p>
+                                    <p>Debug info: {JSON.stringify(currentQuestion, null, 2)}</p>
+                                </div>
+                            )}
+                        </motion.div>
+
+                        <div className="question-actions">
+                            <button
+                                className={`submit-btn ${!selectedAnswer || hasAnswered ? 'disabled' : ''}`}
+                                onClick={submitAnswer}
+                                disabled={!selectedAnswer || hasAnswered}
+                            >
+                                {hasAnswered ? 'Đã trả lời' : 'Gửi đáp án'}
+                            </button>
+                        </div>
+                    </motion.div>
+                </AnimatePresence>
 
                 {/* Real-time player status */}
                 {gameState?.players && (

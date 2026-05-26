@@ -1,5 +1,6 @@
-import {useState} from 'react';
-import {Link} from 'react-router-dom';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     FaCheckCircle,
     FaChevronDown,
@@ -15,16 +16,31 @@ import {
 } from 'react-icons/fa';
 import '../../styles/pages/footer/contact-page.css';
 
+const fadeUp = {
+    hidden: { opacity: 0, y: 24 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' as const } },
+};
 
+const stagger = {
+    hidden: {},
+    show: { transition: { staggerChildren: 0.1, delayChildren: 0.1 } },
+};
+
+const cardItem = {
+    hidden: { opacity: 0, y: 20 },
+    show: { opacity: 1, y: 0, transition: { type: 'spring' as const, stiffness: 280, damping: 22 } },
+};
+
+const viewportOnce = { once: true, amount: 0.2 };
 
 function ContactPage() {
     const [formStatus, setFormStatus] = useState({
         submitted: false, error: false, message: ''
     });
 
-    const [expandedFaq, setExpandedFaq] = useState(null);
+    const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
-    const toggleFaq = (index) => {
+    const toggleFaq = (index: number) => {
         if (expandedFaq === index) {
             setExpandedFaq(null);
         } else {
@@ -71,16 +87,27 @@ function ContactPage() {
     return (<div className="contact-page">
         {/* Hero Section */}
         <div className="contact-hero">
-            <div className="contact-hero-content">
+            <motion.div
+                className="contact-hero-content"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: 'easeOut' }}
+            >
                 <h1>Liên Hệ Với Chúng Tôi</h1>
                 <p>Chúng tôi luôn sẵn sàng lắng nghe và hỗ trợ bạn</p>
-            </div>
+            </motion.div>
         </div>
 
         <div className="contact-container">
             {/* Contact Info Cards */}
-            <div className="contact-info-grid">
-                <div className="contact-info-card">
+            <motion.div
+                className="contact-info-grid"
+                variants={stagger}
+                initial="hidden"
+                whileInView="show"
+                viewport={viewportOnce}
+            >
+                <motion.div className="contact-info-card" variants={cardItem}>
                     <div className="contact-info-icon">
                         <FaEnvelope/>
                     </div>
@@ -88,9 +115,9 @@ function ContactPage() {
                     <p>contact@braingame.vn</p>
                     <p>support@braingame.vn</p>
                     <a href="mailto:contact@braingame.vn" className="contact-link">Gửi email</a>
-                </div>
+                </motion.div>
 
-                <div className="contact-info-card">
+                <motion.div className="contact-info-card" variants={cardItem}>
                     <div className="contact-info-icon">
                         <FaPhoneAlt/>
                     </div>
@@ -98,9 +125,9 @@ function ContactPage() {
                     <p>0123 456 789</p>
                     <p>0987 654 321</p>
                     <a href="tel:0123456789" className="contact-link">Gọi ngay</a>
-                </div>
+                </motion.div>
 
-                <div className="contact-info-card">
+                <motion.div className="contact-info-card" variants={cardItem}>
                     <div className="contact-info-icon">
                         <FaMapMarkerAlt/>
                     </div>
@@ -109,9 +136,9 @@ function ContactPage() {
                     <p>Hà Nội, Việt Nam</p>
                     <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer"
                        className="contact-link">Xem bản đồ</a>
-                </div>
+                </motion.div>
 
-                <div className="contact-info-card">
+                <motion.div className="contact-info-card" variants={cardItem}>
                     <div className="contact-info-icon">
                         <FaClock/>
                     </div>
@@ -119,12 +146,18 @@ function ContactPage() {
                     <p>Thứ Hai - Thứ Sáu: 8:00 - 17:30</p>
                     <p>Thứ Bảy: 8:00 - 12:00</p>
                     <p>Chủ Nhật: Đóng cửa</p>
-                </div>
-            </div>
+                </motion.div>
+            </motion.div>
 
             {/* Contact Form and Map Section */}
             <div className="contact-main-section">
-                <div className="contact-form-section">
+                <motion.div
+                    className="contact-form-section"
+                    variants={fadeUp}
+                    initial="hidden"
+                    whileInView="show"
+                    viewport={viewportOnce}
+                >
                     <div className="section-header">
                         <h2>Gửi Tin Nhắn</h2>
                         <p>Hãy cho chúng tôi biết bạn cần hỗ trợ gì, chúng tôi sẽ phản hồi trong thời gian sớm
@@ -171,9 +204,15 @@ function ContactPage() {
 
                         <button type="submit" className="submit-btn">Gửi Tin Nhắn</button>
                     </form>)}
-                </div>
+                </motion.div>
 
-                <div className="contact-map-section">
+                <motion.div
+                    className="contact-map-section"
+                    variants={fadeUp}
+                    initial="hidden"
+                    whileInView="show"
+                    viewport={viewportOnce}
+                >
                     <div className="section-header">
                         <h2>Vị Trí Của Chúng Tôi</h2>
                         <p>Ghé thăm văn phòng của chúng tôi</p>
@@ -188,11 +227,17 @@ function ContactPage() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </motion.div>
             </div>
 
             {/* FAQ Section */}
-            <div className="contact-faq-section">
+            <motion.div
+                className="contact-faq-section"
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="show"
+                viewport={viewportOnce}
+            >
                 <div className="section-header center">
                     <h2>Câu Hỏi Thường Gặp</h2>
                     <p>Tìm câu trả lời nhanh cho những câu hỏi phổ biến</p>
@@ -208,9 +253,22 @@ function ContactPage() {
                             <h3>{item.question}</h3>
                             {expandedFaq === index ? <FaChevronUp/> : <FaChevronDown/>}
                         </div>
-                        <div className="faq-answer">
-                            <p>{item.answer}</p>
-                        </div>
+                        <AnimatePresence initial={false}>
+                            {expandedFaq === index && (
+                                <motion.div
+                                    key="answer"
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.3, ease: 'easeOut' }}
+                                    style={{ overflow: 'hidden' }}
+                                >
+                                    <div className="faq-answer">
+                                        <p>{item.answer}</p>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>))}
                 </div>
 
@@ -218,48 +276,78 @@ function ContactPage() {
                     <p>Không tìm thấy câu trả lời bạn cần?</p>
                     <Link to="/faq" className="faq-link">Xem tất cả câu hỏi thường gặp</Link>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Connect Section */}
-            <div className="contact-connect-section">
+            <motion.div
+                className="contact-connect-section"
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="show"
+                viewport={viewportOnce}
+            >
                 <div className="section-header center">
                     <h2>Kết Nối Với Chúng Tôi</h2>
                     <p>Theo dõi chúng tôi trên mạng xã hội để cập nhật tin tức và sự kiện mới nhất</p>
                 </div>
 
-                <div className="contact-social-links">
-                    <a href="https://facebook.com" target="_blank" rel="noopener noreferrer"
-                       className="contact-social-link facebook">
+                <motion.div
+                    className="contact-social-links"
+                    variants={stagger}
+                    initial="hidden"
+                    whileInView="show"
+                    viewport={viewportOnce}
+                >
+                    <motion.a
+                        href="https://facebook.com" target="_blank" rel="noopener noreferrer"
+                        className="contact-social-link facebook"
+                        variants={cardItem}
+                    >
                         <FaFacebook/>
                         <span>Facebook</span>
-                    </a>
-                    <a href="https://twitter.com" target="_blank" rel="noopener noreferrer"
-                       className="contact-social-link twitter">
+                    </motion.a>
+                    <motion.a
+                        href="https://twitter.com" target="_blank" rel="noopener noreferrer"
+                        className="contact-social-link twitter"
+                        variants={cardItem}
+                    >
                         <FaTwitter/>
                         <span>Twitter</span>
-                    </a>
-                    <a href="https://instagram.com" target="_blank" rel="noopener noreferrer"
-                       className="contact-social-link instagram">
+                    </motion.a>
+                    <motion.a
+                        href="https://instagram.com" target="_blank" rel="noopener noreferrer"
+                        className="contact-social-link instagram"
+                        variants={cardItem}
+                    >
                         <FaInstagram/>
                         <span>Instagram</span>
-                    </a>
-                    <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer"
-                       className="contact-social-link linkedin">
+                    </motion.a>
+                    <motion.a
+                        href="https://linkedin.com" target="_blank" rel="noopener noreferrer"
+                        className="contact-social-link linkedin"
+                        variants={cardItem}
+                    >
                         <FaLinkedin/>
                         <span>LinkedIn</span>
-                    </a>
-                </div>
-            </div>
+                    </motion.a>
+                </motion.div>
+            </motion.div>
 
             {/* CTA Section */}
-            <div className="contact-cta">
+            <motion.div
+                className="contact-cta"
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="show"
+                viewport={viewportOnce}
+            >
                 <h2>Sẵn sàng bắt đầu hành trình phát triển trí não?</h2>
                 <p>Đăng ký ngay hôm nay để trải nghiệm các trò chơi trí não thú vị và bổ ích</p>
                 <div className="cta-buttons">
                     <Link to="/register" className="cta-button primary">Đăng ký ngay</Link>
                     <Link to="/games" className="cta-button secondary">Khám phá trò chơi</Link>
                 </div>
-            </div>
+            </motion.div>
         </div>
     </div>);
 }

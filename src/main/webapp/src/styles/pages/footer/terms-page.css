@@ -11,13 +11,13 @@
 
 .terms-header h1 {
   font-size: 2.5rem;
-  color: #333;
+  color: var(--text-color);
   margin-bottom: 0.5rem;
 }
 
 .terms-header p {
   font-size: 1rem;
-  color: #777;
+  color: var(--text-muted);
 }
 
 .terms-content {
@@ -27,21 +27,21 @@
 }
 
 .terms-toc {
-  background-color: white;
+  background-color: var(--surface);
   padding: 1.5rem;
   border-radius: 10px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
   align-self: start;
   position: sticky;
-  top: 2rem;
+  top: 5rem;
 }
 
 .terms-toc h2 {
   font-size: 1.3rem;
-  color: #333;
+  color: var(--text-color);
   margin-bottom: 1rem;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid #eee;
+  border-bottom: 2px solid var(--border);
 }
 
 .terms-toc ul {
@@ -55,38 +55,38 @@
 }
 
 .terms-toc a {
-  color: #555;
+  color: var(--text-secondary);
   text-decoration: none;
   font-size: 0.95rem;
   transition: color 0.3s ease;
 }
 
 .terms-toc a:hover {
-  color: #3f51b5;
+  color: var(--primary);
 }
 
 .terms-content section {
   margin-bottom: 2.5rem;
-  scroll-margin-top: 2rem;
+  scroll-margin-top: 6rem;
 }
 
 .terms-content h2 {
   font-size: 1.5rem;
-  color: #333;
+  color: var(--text-color);
   margin-bottom: 1.25rem;
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid #eee;
+  border-bottom: 2px solid var(--border);
 }
 
 .terms-content h3 {
   font-size: 1.2rem;
-  color: #444;
+  color: var(--text-color);
   margin: 1.5rem 0 1rem;
 }
 
 .terms-content p {
   font-size: 1rem;
-  color: #555;
+  color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: 1rem;
 }
@@ -98,7 +98,7 @@
 
 .terms-content ul li {
   font-size: 1rem;
-  color: #555;
+  color: var(--text-secondary);
   margin-bottom: 0.5rem;
   line-height: 1.6;
 }
@@ -111,7 +111,7 @@
 
 .contact-info li {
   font-size: 1rem;
-  color: #555;
+  color: var(--text-secondary);
   margin-bottom: 0.75rem;
   padding-left: 1.5rem;
   position: relative;
@@ -121,7 +121,7 @@
   content: '•';
   position: absolute;
   left: 0;
-  color: #5c6bc0;
+  color: var(--primary);
 }
 
 @media (max-width: 992px) {

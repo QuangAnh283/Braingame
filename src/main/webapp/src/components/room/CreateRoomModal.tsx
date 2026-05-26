@@ -120,24 +120,8 @@ function CreateRoomModal({ onClose }) {
           maxPlayers: selectedMode.minPlayers
         });
       }
-    } else if (name === 'maxPlayers') {
-      const selectedMode = roomModes.find(mode => mode.value === roomData.gameMode);
-      const numValue = parseInt(value) || selectedMode.minPlayers;
-      if (numValue >= selectedMode.minPlayers && (selectedMode.value === 'BATTLE_ROYAL' || numValue <= selectedMode.maxPlayers)) {
-        setRoomData({ ...roomData, maxPlayers: numValue });
-      }
-    } else if (name === 'timeLimit') {
-      const numValue = parseInt(value) || 10;
-      setRoomData({
-        ...roomData,
-        timeLimit: Math.max(10, Math.min(300, numValue))
-      });
-    } else if (name === 'questionCount') {
-      const numValue = parseInt(value) || 5;
-      setRoomData({
-        ...roomData,
-        questionCount: Math.max(5, Math.min(50, numValue))
-      });
+    } else if (name === 'maxPlayers' || name === 'timeLimit' || name === 'questionCount') {
+      setRoomData({ ...roomData, [name]: value });
     } else if (name === 'topicId') {
       setRoomData({ ...roomData, topicId: value, examId: '' });
     } else if (name === 'examId') {
@@ -147,6 +131,22 @@ function CreateRoomModal({ onClose }) {
         ...roomData,
         [name]: type === 'checkbox' ? checked : value
       });
+    }
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    const selectedMode = roomModes.find(mode => mode.value === roomData.gameMode);
+    if (name === 'maxPlayers') {
+      const num = parseInt(value);
+      const clamped = isNaN(num) ? selectedMode.minPlayers : Math.max(selectedMode.minPlayers, num);
+      setRoomData(prev => ({ ...prev, maxPlayers: clamped }));
+    } else if (name === 'timeLimit') {
+      const num = parseInt(value);
+      setRoomData(prev => ({ ...prev, timeLimit: isNaN(num) ? 10 : Math.max(10, Math.min(300, num)) }));
+    } else if (name === 'questionCount') {
+      const num = parseInt(value);
+      setRoomData(prev => ({ ...prev, questionCount: isNaN(num) ? 5 : Math.max(5, Math.min(50, num)) }));
     }
   };
 
@@ -425,8 +425,9 @@ function CreateRoomModal({ onClose }) {
                         name="maxPlayers"
                         min={roomModes.find(m => m.value === roomData.gameMode)?.minPlayers || 2}
                         max={roomData.gameMode === 'BATTLE_ROYAL' ? undefined : (roomModes.find(m => m.value === roomData.gameMode)?.maxPlayers || 20)}
-                        value={roomData.maxPlayers || ''}
+                        value={roomData.maxPlayers}
                         onChange={handleChange}
+                        onBlur={handleBlur}
                         className="crm-input"
                         disabled={roomData.gameMode === 'ONE_VS_ONE'}
                     />
@@ -451,8 +452,9 @@ function CreateRoomModal({ onClose }) {
                         name="timeLimit"
                         min="10"
                         max="300"
-                        value={roomData.timeLimit || ''}
+                        value={roomData.timeLimit}
                         onChange={handleChange}
+                        onBlur={handleBlur}
                         className="crm-input"
                     />
                   </div>
@@ -468,8 +470,9 @@ function CreateRoomModal({ onClose }) {
                         name="questionCount"
                         min="5"
                         max="50"
-                        value={roomData.questionCount || ''}
+                        value={roomData.questionCount}
                         onChange={handleChange}
+                        onBlur={handleBlur}
                         className="crm-input"
                     />
                   </div>

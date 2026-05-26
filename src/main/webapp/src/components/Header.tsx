@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FiLogOut, FiMenu, FiSettings, FiUser, FiX } from 'react-icons/fi';
+import { motion } from 'framer-motion';
 import '../styles/components/header.css';
 import authStore from '../stores/auth-store';
 import authApi from '../services/auth-api';
@@ -11,7 +12,9 @@ function Header() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [avatarUrl, setAvatarUrl] = useState(null);
     const [avatarLoading, setAvatarLoading] = useState(false);
+    const [isScrolled, setIsScrolled] = useState(false);
     const navigate = useNavigate();
+    const location = useLocation();
 
     const user = authStore((state) => state.user);
     const isAuthenticated = authStore((state) => state.isAuthenticated);
@@ -77,6 +80,14 @@ function Header() {
     // Initialize auth store
     useEffect(() => {
         authStore.getState().initialize();
+    }, []);
+
+    // Scroll listener for floating glass header transition
+    useEffect(() => {
+        const handleScroll = () => setIsScrolled(window.scrollY > 50);
+        handleScroll();
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
     // Auto-refresh avatar every 45 minutes to prevent expiration
@@ -183,11 +194,22 @@ function Header() {
         return '/';
     };
     const homePath = getHomePath();
-    const gamesPath = isAuthenticated && user?.role === 'PLAYER' ? '/games' : '/login';
+    const gamesPath = '/games';
     const leaderboardPath = isAuthenticated && user?.role === 'PLAYER' ? '/leaderboard' : '/login';
 
+    // Active indicator: only mark "real destinations", skip /login gate paths
+    const navItems = [
+        { path: homePath, label: 'Trang chủ', activePaths: [homePath] },
+        { path: gamesPath, label: 'Trò chơi', activePaths: ['/games'] },
+        { path: leaderboardPath, label: 'Bảng xếp hạng', activePaths: ['/leaderboard'] },
+    ];
+    const isItemActive = (item) =>
+        item.activePaths.some(
+            (p) => location.pathname === p || location.pathname.startsWith(p + '/')
+        );
+
     return (
-        <header className="hd-header">
+        <header className={`hd-header ${isScrolled ? 'scrolled' : ''}`}>
             <div className="hd-header-content">
                 <div className="hd-header-left">
                     <Link to={homePath} className="hd-logo" onClick={closeMobileMenu}>
@@ -199,15 +221,25 @@ function Header() {
 
                 {/* Desktop Navigation */}
                 <nav className="hd-nav hd-nav-desktop">
-                    <Link to={homePath} className={`hd-nav-link ${isLoading ? 'disabled' : ''}`}>
-                        Trang chủ
-                    </Link>
-                    <Link to={gamesPath} className={`hd-nav-link ${isLoading ? 'disabled' : ''}`}>
-                        Trò chơi
-                    </Link>
-                    <Link to={leaderboardPath} className={`hd-nav-link ${isLoading ? 'disabled' : ''}`}>
-                        Bảng xếp hạng
-                    </Link>
+                    {navItems.map((item) => {
+                        const active = isItemActive(item);
+                        return (
+                            <Link
+                                key={item.label}
+                                to={item.path}
+                                className={`hd-nav-link ${isLoading ? 'disabled' : ''} ${active ? 'active' : ''}`}
+                            >
+                                <span className="hd-nav-link-text">{item.label}</span>
+                                {active && (
+                                    <motion.div
+                                        layoutId="activeNavIndicator"
+                                        className="hd-nav-indicator"
+                                        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                                    />
+                                )}
+                            </Link>
+                        );
+                    })}
 
                     <div className="hd-header-actions">
                         {isAuthenticated ? (

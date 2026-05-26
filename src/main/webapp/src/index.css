@@ -59,6 +59,8 @@
   --success-rgb: 16, 185, 129;
   --danger-rgb: 220, 38, 38;
   --warning-rgb: 249, 115, 22;
+  --surface-rgb: 255, 255, 255;
+  --surface-elevated-rgb: 248, 250, 252;
   /* Shadow đậm hơn khi hover */
 
   /* Spacing */
@@ -84,6 +86,10 @@
   padding: 0;
   box-sizing: border-box;
   font-family: 'Poppins', sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -166,5 +172,7 @@ button, input, textarea, select {
   --primary-rgb: 165, 180, 252;
   --success-rgb: 52, 211, 153;
   --danger-rgb: 248, 113, 113;
+  --surface-rgb: 31, 41, 55;
+  --surface-elevated-rgb: 55, 65, 81;
   --warning-rgb: 251, 146, 60;
 }

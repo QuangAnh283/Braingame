@@ -13,6 +13,7 @@ import Login from "../../pages/auth/login";
 import Register from "../../pages/auth/register";
 import ResetPassword from "../../pages/auth/reset-password";
 import VerifyEmail from "../../pages/auth/verify-email";
+import FutureGamesPage from "../../pages/future-games-page";
 import Welcome from "../../pages/welcome";
 
 const publicRoutes = [
@@ -30,6 +31,7 @@ const publicRoutes = [
   { path: "privacy", element: <PrivacyPage /> },
   { path: "terms", element: <TermsPage /> },
   { path: "feedback", element: <FeedbackPage /> },
+  { path: "games", element: <FutureGamesPage /> },
 ];
 
 export default publicRoutes;

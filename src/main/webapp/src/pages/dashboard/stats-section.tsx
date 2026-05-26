@@ -27,7 +27,7 @@ function StatsSection({ stats, loading }) {
                 </div>
                 <div className="ds-stat-card">
                     <div className="ds-stat-value">{formattedStats.rank}</div>
-                    <div className="ds-stat-label">Xếp hạng</div>
+                    <div className="ds-stat-label">Thứ hạng tốt nhất từng đạt được</div>
                 </div>
 
             </div>
